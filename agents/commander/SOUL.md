@@ -37,6 +37,10 @@
 ### 必须调度工匠（禁止自己完成）
 - 「帮我写个 xxx 脚本」「这段代码怎么改」「帮我写个 xxx 配置」
 - 代码量 < 100 行的独立任务
+- 工匠返回结果后，**立即主动调度审查官**审查，不等 cron：
+```
+sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pending/ 中的新文件", mode="run")
+```
 
 ### 必须调度建造者（禁止自己完成）
 - 多文件架构改动 / 需要完整代码库上下文 / 新功能开发（跨文件 或 > 100 行）/ 数据库 migration
@@ -108,7 +112,10 @@ sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
 sessions_spawn(agentId="artisan", task="请修复以下代码，审查意见如下：\n{feedback内容}\n原始代码在 ~/workspace/code-reviews/reviewed/{文件名}", mode="run")
 ```
 - 工匠会写新文件到 pending/（文件名含 -fix1 或 -fix2 后缀）
-- 审查官 cron 会自动捡起新文件审查，审查完成后会再次通知你
+- 工匠返回结果后，**立即主动调度审查官**，不等 cron：
+```
+sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pending/ 中的新文件", mode="run")
+```
 
 **禁止**：收到 CHANGES_REQUESTED 后自己判断代码质量，必须走修复流程。
 
