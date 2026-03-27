@@ -1,0 +1,332 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.3.24",
+    "lastTouchedAt": "2026-03-27T04:54:30.568Z"
+  },
+  "env": {
+    "vars": {
+      "HTTPS_PROXY": "socks5://127.0.0.1:1080  # optional"
+    }
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "bailian": {
+        "baseUrl": "http://101.43.64.125:8000/v1",
+        "apiKey": "YOUR_APIKEY_HERE",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "qwen3.5-plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 1000000,
+            "maxTokens": 65536,
+            "compat": {
+              "thinkingFormat": "qwen"
+            }
+          },
+          {
+            "id": "qwen3-max-2026-01-23",
+            "name": "qwen3-max-2026-01-23",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 65536,
+            "compat": {
+              "thinkingFormat": "qwen"
+            }
+          },
+          {
+            "id": "qwen3-coder-next",
+            "name": "qwen3-coder-next",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 65536
+          },
+          {
+            "id": "qwen3-coder-plus",
+            "name": "qwen3-coder-plus",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 1000000,
+            "maxTokens": 65536
+          },
+          {
+            "id": "MiniMax-M2.5",
+            "name": "MiniMax-M2.5",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 196608,
+            "maxTokens": 32768
+          },
+          {
+            "id": "glm-5",
+            "name": "glm-5",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 202752,
+            "maxTokens": 16384,
+            "compat": {
+              "thinkingFormat": "qwen"
+            }
+          },
+          {
+            "id": "glm-4.7",
+            "name": "glm-4.7",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 202752,
+            "maxTokens": 16384,
+            "compat": {
+              "thinkingFormat": "qwen"
+            }
+          },
+          {
+            "id": "kimi-k2.5",
+            "name": "kimi-k2.5",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0,
+              "output": 0,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "contextWindow": 262144,
+            "maxTokens": 32768,
+            "compat": {
+              "thinkingFormat": "qwen"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "bailian/qwen3.5-plus"
+      },
+      "models": {
+        "bailian/qwen3.5-plus": {},
+        "bailian/qwen3-max-2026-01-23": {},
+        "bailian/qwen3-coder-next": {},
+        "bailian/qwen3-coder-plus": {},
+        "bailian/MiniMax-M2.5": {},
+        "bailian/glm-5": {},
+        "bailian/glm-4.7": {},
+        "bailian/kimi-k2.5": {}
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "main"
+      },
+      {
+        "id": "commander",
+        "default": true,
+        "name": "commander",
+        "workspace": ".agents/commander",
+        "agentDir": "/home/ubuntu/.openclaw/agents/commander/agent",
+        "model": "bailian/kimi-k2.5",
+        "identity": {
+          "name": "🧠 指挥官"
+        },
+        "tools": {
+          "allow": [
+            "exec",
+            "read",
+            "write"
+          ],
+          "deny": [
+            "browser"
+          ]
+        }
+      },
+      {
+        "id": "artisan",
+        "name": "artisan",
+        "workspace": ".agents/artisan",
+        "agentDir": "/home/ubuntu/.openclaw/agents/artisan/agent",
+        "model": "bailian/qwen3-coder-plus",
+        "identity": {
+          "name": "🛠️ 工匠"
+        },
+        "tools": {
+          "allow": [
+            "exec",
+            "read",
+            "write",
+            "edit"
+          ],
+          "deny": [
+            "browser"
+          ]
+        }
+      },
+      {
+        "id": "scout",
+        "name": "scout",
+        "workspace": ".agents/scout",
+        "agentDir": "/home/ubuntu/.openclaw/agents/scout/agent",
+        "model": "bailian/qwen3.5-plus",
+        "identity": {
+          "name": "📰 斥候"
+        },
+        "tools": {
+          "deny": [
+            "exec",
+            "browser"
+          ]
+        }
+      },
+      {
+        "id": "scribe",
+        "name": "scribe",
+        "workspace": ".agents/scribe",
+        "agentDir": "/home/ubuntu/.openclaw/agents/scribe/agent",
+        "model": "bailian/kimi-k2.5",
+        "identity": {
+          "name": "✍️ 笔帖式"
+        },
+        "tools": {
+          "allow": [
+            "read",
+            "write"
+          ],
+          "deny": [
+            "exec",
+            "browser"
+          ]
+        }
+      },
+      {
+        "id": "reviewer",
+        "name": "reviewer",
+        "workspace": ".agents/reviewer",
+        "agentDir": "/home/ubuntu/.openclaw/agents/reviewer/agent",
+        "model": "bailian/qwen3-max-2026-01-23",
+        "identity": {
+          "name": "🔍 审查官"
+        },
+        "tools": {
+          "deny": [
+            "browser"
+          ]
+        }
+      }
+    ]
+  },
+  "tools": {
+    "web": {
+      "search": {
+        "enabled": true,
+        "provider": "brave",
+        "maxResults": 5
+      }
+    },
+    "agentToAgent": {
+      "enabled": true,
+      "allow": [
+        "*"
+      ]
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "gateway": {
+    "mode": "local",
+    "auth": {
+      "mode": "token",
+      "token": "YOUR_TOKEN_HERE"
+    }
+  },
+  "plugins": {
+    "entries": {
+      "brave": {
+        "enabled": true,
+        "config": {
+          "webSearch": {
+            "apiKey": "YOUR_APIKEY_HERE"
+          }
+        }
+      }
+    },
+    "allow": [
+      "channels",
+      "telegram",
+      "brave"
+    ]
+  },
+  "bindings": []
+}
