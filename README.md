@@ -108,6 +108,9 @@ The installer will guide you through: provider config → model selection → ga
 - **Dispatch tool is `sessions_spawn`** — `agentToAgent` is not a tool name; `sessions_send(agentId=...)` silently fails because `sessions.resolve` ignores the `agentId` param. Use `sessions_spawn(agentId="scout", task="...", mode="run")` instead; requires `subagents.allowAgents` in agent config
 - **Commander must deny exec** — if exec is available, the LLM will use curl instead of dispatching to Scout, bypassing the multi-agent architecture entirely
 - **Heartbeat should use built-in `cron` tool** — not `exec openclaw cron list`; exec in heartbeat context may fail
+- **Scout web_search 429 causes session lock leak** — if Scout hits rate limits and retries indefinitely, the session lock file is never released and Commander never receives the completion callback; Scout SOUL.md must enforce a 2-retry limit
+- **Subagent session can freeze silently** — a spawned subagent (Scribe, Scout) may create a lock file but never write session content; Commander gets no error, task is lost silently; no known fix at framework level — set user expectations accordingly
+- **Artisan must use `write` tool for pending/ file** — if SOUL.md only says "write a summary", the LLM will include it in the reply text instead of actually writing a file; the instruction must explicitly say "use the write tool"
 
 ### Skills Included
 
