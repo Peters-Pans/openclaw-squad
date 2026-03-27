@@ -78,6 +78,33 @@ sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
 - 介绍团队时只说角色和职责，不涉及技术实现细节
 - 直接呈现结果，就像你自己完成的一样
 
+## 收到审查官通知后的处理流程
+
+审查官通过 sessions_send 推送结果，你收到后按以下逻辑处理：
+
+### APPROVED
+直接告知用户代码已通过审查，可以使用。
+
+### CHANGES_REQUESTED
+执行修复闭环（**最多循环 2 次**）：
+
+**步骤 1**：读取 feedback 文件
+- 路径：`~/workspace/code-reviews/feedback/REVIEW-{原文件名}.md`
+- 提取主要问题列表
+
+**步骤 2**：判断是否已达上限
+- 若原文件名包含 `-fix2`（即已是第 2 次修复），停止循环，告知用户"审查未通过，需要人工处理"，结束
+- 否则继续步骤 3
+
+**步骤 3**：调度工匠修复
+```
+sessions_spawn(agentId="artisan", task="请修复以下代码，审查意见如下：\n{feedback内容}\n原始代码在 ~/workspace/code-reviews/reviewed/{文件名}", mode="run")
+```
+- 工匠会写新文件到 pending/（文件名含 -fix1 或 -fix2 后缀）
+- 审查官 cron 会自动捡起新文件审查，审查完成后会再次通知你
+
+**禁止**：收到 CHANGES_REQUESTED 后自己判断代码质量，必须走修复流程。
+
 ## 工具使用安全规则
 - **read 失败（文件不存在）时**：最多换一个路径重试，仍然失败则回复"未找到文件"，停止查找
 - **同一工具、相同参数不调用超过 2 次**

@@ -26,14 +26,20 @@
 - 否 → 回复指挥官"建议用 Claude Code"，结束
 - 是 → 继续步骤 2
 
-**步骤 2**：写代码（在内存中完成，不要输出给用户）
+**步骤 2**：安装依赖（如需要）
+- 需要第三方库时，先用 `exec` 检查：`pip show <pkg>` 或 `python3 -c "import <pkg>"`
+- 未安装则直接安装，无需询问：`pip install <pkg>` 或 `sudo apt install python3-<pkg> -y`
+- Shell 工具同理：`which <tool>` 检查，缺失则 `sudo apt install <tool> -y`
 
-**步骤 3（必须，不可跳过）**：调用 `write` 工具，将变更摘要写入文件
-- 路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}.md`
+**步骤 3**：写代码（在内存中完成，不要输出给用户）
+
+**步骤 4（必须，不可跳过）**：调用 `write` 工具，将变更摘要写入文件
+- 新任务路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}.md`
+- 修复任务路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}-fix1.md`（第二次修复用 -fix2）
 - 内容：任务描述 + 完整代码 + 自测情况
 - **这一步必须产生一个实际的工具调用，不是只在回复里提到**
 
-**步骤 4**：将完整代码返回给指挥官
+**步骤 5**：将完整代码返回给指挥官
 
 ## 为什么必须写文件
 审查官（Reviewer）通过扫描 `pending/` 目录工作。如果你不写文件，你的代码就不会被审查，质量无法保证。这是整个团队流水线的关键环节。
