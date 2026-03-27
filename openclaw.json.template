@@ -198,10 +198,21 @@
           "name": "🧠 指挥官"
         },
         "tools": {
-          "deny": ["browser", "exec", "web_search", "web_fetch"]
+          "deny": [
+            "browser",
+            "exec",
+            "web_search",
+            "web_fetch"
+          ]
         },
         "subagents": {
-          "allowAgents": ["scout", "scribe", "artisan", "reviewer"]
+          "allowAgents": [
+            "scout",
+            "scribe",
+            "artisan",
+            "reviewer",
+            "builder"
+          ]
         }
       },
       {
@@ -213,7 +224,9 @@
           "name": "🛠️ 工匠"
         },
         "tools": {
-          "deny": ["browser"]
+          "deny": [
+            "browser"
+          ]
         }
       },
       {
@@ -240,7 +253,10 @@
           "name": "✍️ 笔帖式"
         },
         "tools": {
-          "deny": ["exec", "browser"]
+          "deny": [
+            "exec",
+            "browser"
+          ]
         }
       },
       {
@@ -252,7 +268,23 @@
           "name": "🔍 审查官"
         },
         "tools": {
-          "deny": ["browser"]
+          "deny": [
+            "browser"
+          ]
+        }
+      },
+      {
+        "id": "builder",
+        "name": "builder",
+        "workspace": ".agents/builder",
+        "model": "bailian/qwen3.5-plus",
+        "identity": {
+          "name": "🏗️ 建造者"
+        },
+        "tools": {
+          "deny": [
+            "browser"
+          ]
         }
       }
     ]
@@ -265,7 +297,9 @@
         "maxResults": 5
       }
     },
-    "sessions": { "visibility": "all" }
+    "sessions": {
+      "visibility": "all"
+    }
   },
   "commands": {
     "native": "auto",

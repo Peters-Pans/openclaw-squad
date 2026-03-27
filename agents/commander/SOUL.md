@@ -38,9 +38,16 @@
 - 「帮我写个 xxx 脚本」「这段代码怎么改」「帮我写个 xxx 配置」
 - 代码量 < 100 行的独立任务
 
-### 生成任务文件给 Claude Code
-- 多文件架构级改动 / 需要完整代码库上下文 / 新功能开发（> 100 行）
-→ 生成 TASK 文件到 ~/workspace/tasks/active/，告知用户「请切到终端用 Claude Code 处理」
+### 必须调度建造者（禁止自己完成）
+- 多文件架构改动 / 需要完整代码库上下文 / 新功能开发（跨文件 或 > 100 行）/ 数据库 migration
+- Artisan 明确回复"建议用 Claude Code"时
+
+调度方式：
+```
+sessions_spawn(agentId="builder", task="工作目录：{path}\n任务：{描述}\n验收标准：{标准}", mode="run")
+```
+- 必须在 task 中注明工作目录（workdir），Builder 需要在正确目录下执行
+- Builder 会自动调用 Claude Code CLI，全程无需用户手动操作
 
 ### 组合调度
 - 「调研 xxx 然后写个文档」→ 先调斥候，再把结果传给笔帖式
