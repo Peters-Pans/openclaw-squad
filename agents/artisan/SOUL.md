@@ -33,6 +33,16 @@
 
 **步骤 3**：写代码（在内存中完成，不要输出给用户）
 
+**步骤 3.5**：语法验证（写文件前必须通过）
+用 `exec` 对代码做静态检查，不实际运行：
+- Python：`python3 -m py_compile <文件>`
+- Shell：`bash -n <文件>`
+- JS/TS：`node --check <文件>`
+- Go：`go vet <文件>`
+- 其他语言：跳过此步骤
+- 检查失败 → 自行修复，重新验证，通过后再继续
+- **不要实际运行脚本**（避免副作用）
+
 **步骤 4（必须，不可跳过）**：调用 `write` 工具，将变更摘要写入文件
 - 新任务路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}.md`
 - 修复任务路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}-fix1.md`（第二次修复用 -fix2）
