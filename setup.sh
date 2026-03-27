@@ -18,6 +18,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPENCLAW_DIR="$HOME/.openclaw"
 AGENTS_DIR="$OPENCLAW_DIR/agents"
 
+# ── Platform ──────────────────────────────────────────────────────────────────
+OS="$(uname -s)"
+case "$OS" in
+  Darwin) PLATFORM="macos" ;;
+  Linux)  PLATFORM="linux" ;;
+  *)      error "Unsupported platform: $OS" ;;
+esac
+
 # ── Header ────────────────────────────────────────────────────────────────────
 echo -e "${BOLD}${BLUE}"
 cat << 'BANNER'
@@ -33,12 +41,21 @@ echo
 
 # ── Prerequisites ─────────────────────────────────────────────────────────────
 section "Checking Prerequisites"
-command -v openclaw >/dev/null 2>&1 || error "openclaw not found. Install: https://github.com/openclaw/openclaw"
-command -v node     >/dev/null 2>&1 || error "node.js not found"
-command -v npm      >/dev/null 2>&1 || error "npm not found"
+command -v openclaw >/dev/null 2>&1 || error "openclaw not found. Install: https://openclaw.ai/docs/install"
+command -v python3  >/dev/null 2>&1 || error "python3 not found"
 OC_VERSION=$(openclaw --version 2>/dev/null | head -1 || echo "unknown")
 success "openclaw $OC_VERSION"
-success "node $(node --version)"
+success "python3 $(python3 --version 2>&1 | awk '{print $2}')"
+success "Platform: $PLATFORM"
+
+# claude CLI is optional — Builder agent uses it for complex coding tasks
+if command -v claude >/dev/null 2>&1; then
+  CLAUDE_AVAILABLE=true
+  success "claude $(claude --version 2>/dev/null | head -1 || echo 'found')"
+else
+  CLAUDE_AVAILABLE=false
+  warn "claude CLI not found — Builder agent (complex coding) will be disabled"
+fi
 
 # ── Provider ──────────────────────────────────────────────────────────────────
 section "Model Provider"
@@ -61,26 +78,29 @@ ask "Scout model      [qwen3.5-plus]:         "; read -r SCOUT_MODEL;    SCOUT_M
 ask "Scribe model     [kimi-k2.5]:            "; read -r SCRIBE_MODEL;   SCRIBE_MODEL="${SCRIBE_MODEL:-kimi-k2.5}"
 ask "Artisan model    [qwen3-coder-plus]:     "; read -r ARTISAN_MODEL;  ARTISAN_MODEL="${ARTISAN_MODEL:-qwen3-coder-plus}"
 ask "Reviewer model   [qwen3-max-2026-01-23]: "; read -r REVIEWER_MODEL; REVIEWER_MODEL="${REVIEWER_MODEL:-qwen3-max-2026-01-23}"
+if [[ "$CLAUDE_AVAILABLE" == true ]]; then
+  ask "Builder model    [qwen3.5-plus]:         "; read -r BUILDER_MODEL;  BUILDER_MODEL="${BUILDER_MODEL:-qwen3.5-plus}"
+fi
 
 # ── Gateway ───────────────────────────────────────────────────────────────────
 section "Gateway Token"
 AUTO_TOKEN=$(LC_ALL=C tr -dc 'a-f0-9' </dev/urandom 2>/dev/null | head -c 32 || openssl rand -hex 16)
-echo -e "${DIM}Token is used to authenticate clients connecting to the local gateway.${NC}"
+echo -e "${DIM}Token authenticates clients connecting to the gateway.${NC}"
 echo
 ask "Gateway token  [auto: ${AUTO_TOKEN:0:8}…]: "; read -r GW_TOKEN; GW_TOKEN="${GW_TOKEN:-$AUTO_TOKEN}"
 success "Token configured"
 
 # ── Web Search ────────────────────────────────────────────────────────────────
 section "Web Search (optional)"
-echo -e "${DIM}Brave Search API gives agents a web_search tool (no browser needed).${NC}"
+echo -e "${DIM}Brave Search API gives agents a web_search tool.${NC}"
 echo -e "${DIM}Get a free key at: https://api.search.brave.com/app/keys${NC}"
 echo
 ask "Brave API key  [skip]: "; read -r -s BRAVE_KEY; echo
-[[ -n "$BRAVE_KEY" ]] && success "Brave Search enabled" || warn "Skipping web search — agents won't be able to search the web"
+[[ -n "$BRAVE_KEY" ]] && success "Brave Search enabled" || warn "Skipping — agents will use web_fetch only"
 
 # ── Workspace ─────────────────────────────────────────────────────────────────
 section "Workspace Directory"
-echo -e "${DIM}Shared directory used by all agents for tasks, code reviews, and signals.${NC}"
+echo -e "${DIM}Shared directory used by all agents for tasks, code reviews, and docs.${NC}"
 echo
 ask "Workspace path  [~/workspace]: "; read -r WORKSPACE_INPUT; WORKSPACE_INPUT="${WORKSPACE_INPUT:-~/workspace}"
 WORKSPACE="${WORKSPACE_INPUT/#\~/$HOME}"
@@ -89,12 +109,16 @@ success "Workspace: $WORKSPACE"
 # ── Confirm ───────────────────────────────────────────────────────────────────
 echo
 echo -e "${BOLD}┌─ Install Summary ──────────────────────────────────────────┐${NC}"
-printf "│  %-18s %-40s│\n" "Provider"  "$PROVIDER_NAME → $PROVIDER_URL"
+printf "│  %-18s %-40s│\n" "Platform"   "$PLATFORM"
+printf "│  %-18s %-40s│\n" "Provider"   "$PROVIDER_NAME → $PROVIDER_URL"
 printf "│  %-18s %-40s│\n" "Commander"  "$PROVIDER_NAME/$CMD_MODEL"
 printf "│  %-18s %-40s│\n" "Scout"      "$PROVIDER_NAME/$SCOUT_MODEL"
 printf "│  %-18s %-40s│\n" "Scribe"     "$PROVIDER_NAME/$SCRIBE_MODEL"
 printf "│  %-18s %-40s│\n" "Artisan"    "$PROVIDER_NAME/$ARTISAN_MODEL"
 printf "│  %-18s %-40s│\n" "Reviewer"   "$PROVIDER_NAME/$REVIEWER_MODEL"
+if [[ "$CLAUDE_AVAILABLE" == true ]]; then
+  printf "│  %-18s %-40s│\n" "Builder"  "$PROVIDER_NAME/$BUILDER_MODEL"
+fi
 printf "│  %-18s %-40s│\n" "Gateway"    "${GW_TOKEN:0:8}…"
 printf "│  %-18s %-40s│\n" "Web search" "${BRAVE_KEY:+Brave API enabled}${BRAVE_KEY:-disabled}"
 printf "│  %-18s %-40s│\n" "Workspace"  "$WORKSPACE"
@@ -117,10 +141,10 @@ info "Configuring openclaw..."
 mkdir -p "$OPENCLAW_DIR"
 CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 
-# Stop gateway if running (avoid config conflict)
+# Stop gateway if running
 pkill -f "openclaw.*gateway" 2>/dev/null && { warn "Stopped existing gateway"; sleep 1; } || true
 
-# JSON-escape helper (handles quotes, backslashes, special chars in API keys)
+# JSON-escape helper
 json_str() { python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))" <<< "$1"; }
 
 API_KEY_J=$(json_str "$API_KEY")
@@ -129,7 +153,7 @@ BRAVE_KEY_J=$(json_str "${BRAVE_KEY:-}")
 PROVIDER_URL_J=$(json_str "$PROVIDER_URL")
 BRAVE_ENABLED=$([ -n "$BRAVE_KEY" ] && echo "true" || echo "false")
 
-# Build unique model list (avoid duplicate ids when multiple agents share a model)
+# Build unique model list
 declare -A _SEEN_MODELS
 _MODELS_JSON=""
 _add_model() {
@@ -150,8 +174,25 @@ _add_model "$SCOUT_MODEL"    '["text","image"]' 1000000 65536 "qwen"
 _add_model "$SCRIBE_MODEL"   '["text","image"]' 262144  32768 "qwen"
 _add_model "$ARTISAN_MODEL"  '["text"]'         1000000 65536 ""
 _add_model "$REVIEWER_MODEL" '["text"]'         262144  65536 "qwen"
+if [[ "$CLAUDE_AVAILABLE" == true ]]; then
+  _add_model "${BUILDER_MODEL:-qwen3.5-plus}" '["text","image"]' 1000000 65536 "qwen"
+fi
 
-# Write full config from scratch (gateway is stopped)
+# Build builder agent entry (conditional)
+BUILDER_ENTRY=""
+BUILDER_IN_SUBAGENTS=""
+if [[ "$CLAUDE_AVAILABLE" == true ]]; then
+  BUILDER_ENTRY=",
+      {
+        \"id\": \"builder\", \"name\": \"builder\",
+        \"workspace\": \".agents/builder\",
+        \"model\": \"$PROVIDER_NAME/${BUILDER_MODEL:-qwen3.5-plus}\",
+        \"identity\": { \"name\": \"🏗️ 建造者\" },
+        \"tools\": { \"deny\": [\"browser\"] }
+      }"
+  BUILDER_IN_SUBAGENTS=", \"builder\""
+fi
+
 cat > "$CONFIG_FILE" << JSONEOF
 {
   "meta": { "lastTouchedVersion": "2026.3.24" },
@@ -181,7 +222,7 @@ cat > "$CONFIG_FILE" << JSONEOF
         "model": "$PROVIDER_NAME/$CMD_MODEL",
         "identity": { "name": "🧠 指挥官" },
         "tools": { "deny": ["browser", "exec", "web_search", "web_fetch"] },
-        "subagents": { "allowAgents": ["scout", "scribe", "artisan", "reviewer"] }
+        "subagents": { "allowAgents": ["scout", "scribe", "artisan", "reviewer"$BUILDER_IN_SUBAGENTS] }
       },
       {
         "id": "artisan", "name": "artisan",
@@ -210,7 +251,7 @@ cat > "$CONFIG_FILE" << JSONEOF
         "model": "$PROVIDER_NAME/$REVIEWER_MODEL",
         "identity": { "name": "🔍 审查官" },
         "tools": { "deny": ["browser"] }
-      }
+      }$BUILDER_ENTRY
     ]
   },
   "tools": {
@@ -243,99 +284,81 @@ mkdir -p "$AGENTS_DIR"
 
 install_agent() {
   local ID="$1"
-  local SOUL_SRC="$SCRIPT_DIR/agents/$ID/SOUL.md"
-  local BEAT_SRC="$SCRIPT_DIR/agents/$ID/HEARTBEAT.md"
   local DEST="$AGENTS_DIR/$ID"
-
   mkdir -p "$DEST"
-
-  if [[ -f "$SOUL_SRC" ]]; then
-    cp "$SOUL_SRC" "$DEST/SOUL.md"
-  fi
-  if [[ -f "$BEAT_SRC" ]]; then
-    cp "$BEAT_SRC" "$DEST/HEARTBEAT.md"
-  fi
-
-  # Create TOOLS.md for commander with dispatch instructions
-  if [[ "$ID" == "commander" ]]; then
-    cat > "$DEST/TOOLS.md" << 'TOOLSEOF'
-# TOOLS.md - 工具使用备忘
-
-## ⚠️ 调度子 Agent（最重要）
-
-调度内部团队成员用 sessions_spawn：
-
-```
-sessions_spawn(agentId="scout",   task="请调研...", mode="run")
-sessions_spawn(agentId="scribe",  task="请写...",   mode="run")
-sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
-```
-
-- mode 固定用 "run"
-- 不要用 sessions_send(agentId=...) — agentId 在 sessions_send 中无效
-
-## sessions_send 备用格式（直接寻址）
-
-```
-sessions_send(sessionKey="agent:scout:main",   message="...")
-sessions_send(sessionKey="agent:scribe:main",  message="...")
-sessions_send(sessionKey="agent:artisan:main", message="...")
-```
-TOOLSEOF
-  fi
-
+  [[ -f "$SCRIPT_DIR/agents/$ID/SOUL.md"      ]] && cp "$SCRIPT_DIR/agents/$ID/SOUL.md"      "$DEST/SOUL.md"
+  [[ -f "$SCRIPT_DIR/agents/$ID/HEARTBEAT.md" ]] && cp "$SCRIPT_DIR/agents/$ID/HEARTBEAT.md" "$DEST/HEARTBEAT.md"
   info "  $ID → $DEST"
 }
 
 for AGENT_ID in commander artisan scout scribe reviewer; do
   install_agent "$AGENT_ID"
 done
+
+if [[ "$CLAUDE_AVAILABLE" == true ]]; then
+  install_agent "builder"
+fi
+
 success "All agents installed"
 
 # ── Step 4: Start Gateway ─────────────────────────────────────────────────────
 info "Starting openclaw gateway..."
 
-# Try systemd first (survives reboot), fall back to nohup
-if openclaw gateway install 2>/dev/null; then
-  systemctl --user daemon-reload 2>/dev/null || true
-  systemctl --user enable openclaw-gateway.service 2>/dev/null || true
-  systemctl --user restart openclaw-gateway.service
-  echo -e "  ${DIM}Managed by systemd (auto-starts on login)${NC}"
+start_gateway_macos() {
+  # Try openclaw's own install (handles launchd automatically)
+  if openclaw gateway install 2>/dev/null; then
+    launchctl kickstart -k "gui/$(id -u)/ai.openclaw.gateway" 2>/dev/null || \
+    launchctl start ai.openclaw.gateway 2>/dev/null || true
+    echo -e "  ${DIM}Managed by launchd (auto-starts on login)${NC}"
+  else
+    nohup openclaw gateway > "$OPENCLAW_DIR/gateway.log" 2>&1 &
+    echo -e "  ${DIM}PID $! · log: $OPENCLAW_DIR/gateway.log${NC}"
+    warn "launchd install failed — gateway will not survive reboot. Run 'openclaw gateway install' manually."
+  fi
+}
+
+start_gateway_linux() {
+  if openclaw gateway install 2>/dev/null; then
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user enable openclaw-gateway.service 2>/dev/null || true
+    systemctl --user restart openclaw-gateway.service
+    echo -e "  ${DIM}Managed by systemd (auto-starts on login)${NC}"
+  else
+    nohup openclaw gateway > "$OPENCLAW_DIR/gateway.log" 2>&1 &
+    echo -e "  ${DIM}PID $! · log: $OPENCLAW_DIR/gateway.log${NC}"
+    warn "systemd install failed — gateway will not survive reboot. Run 'openclaw gateway install' manually."
+  fi
+}
+
+if [[ "$PLATFORM" == "macos" ]]; then
+  start_gateway_macos
 else
-  nohup openclaw gateway > "$OPENCLAW_DIR/gateway.log" 2>&1 &
-  GW_PID=$!
-  echo -e "  ${DIM}PID $GW_PID · log: $OPENCLAW_DIR/gateway.log${NC}"
-  warn "systemd install failed — gateway will not survive reboot"
+  start_gateway_linux
 fi
 
-# Wait for gateway to be ready
-MAX_WAIT=15
-for i in $(seq 1 $MAX_WAIT); do
+# Wait for gateway
+for i in $(seq 1 15); do
   sleep 1
   if openclaw agents list >/dev/null 2>&1; then
     success "Gateway is ready"
     break
   fi
-  if [[ $i -eq $MAX_WAIT ]]; then
-    warn "Gateway may still be starting. Check: openclaw gateway status"
-  fi
+  [[ $i -eq 15 ]] && warn "Gateway may still be starting. Check: openclaw gateway status"
 done
 
 # ── Step 5: Cron Jobs ─────────────────────────────────────────────────────────
 info "Setting up cron jobs..."
 
-# Reviewer scan every 30 min
 openclaw cron add \
   --name "reviewer-scan" \
   --agent reviewer \
   --cron "*/30 * * * *" \
   --session isolated \
   --best-effort-deliver \
-  --message "Check ~/workspace/code-reviews/pending/ for files. For each file: review it, write findings to ~/workspace/code-reviews/feedback/<filename>-review.md, move reviewed file to ~/workspace/code-reviews/reviewed/." \
+  --message "Check $WORKSPACE/code-reviews/pending/ for new files. For each: review it, write findings to $WORKSPACE/code-reviews/feedback/REVIEW-{filename}.md, move to $WORKSPACE/code-reviews/reviewed/. Notify commander via sessions_send." \
   2>/dev/null && success "Cron: reviewer-scan (every 30 min)" \
              || warn "Failed to add reviewer-scan cron — add manually later"
 
-# Commander heartbeat every 2h
 openclaw cron add \
   --name "commander-heartbeat" \
   --agent commander \
@@ -352,14 +375,15 @@ echo -e "${BOLD}${GREEN}╔═════════════════�
 echo -e "${BOLD}${GREEN}║   ✓  OpenClaw Squad installed successfully!   ║${NC}"
 echo -e "${BOLD}${GREEN}╚═══════════════════════════════════════════════╝${NC}"
 echo
-echo -e "  ${BOLD}Next steps:${NC}"
-echo -e "  1. Connect your client to: ${CYAN}ws://localhost:18789${NC}"
-echo -e "     Token: ${CYAN}${GW_TOKEN:0:8}…${NC}"
-echo -e "  2. Start chatting — messages go to Commander"
-echo -e "  3. Drop code files in: ${CYAN}$WORKSPACE/code-reviews/pending/${NC}"
-echo -e "     Reviewer will pick them up automatically every 30 min"
+echo -e "  ${BOLD}Connect to gateway:${NC}"
+echo -e "    URL:   ${CYAN}ws://localhost:18789${NC}"
+echo -e "    Token: ${CYAN}${GW_TOKEN:0:8}…${NC}"
 echo
-echo -e "  ${DIM}Workspace: $WORKSPACE${NC}"
-echo -e "  ${DIM}Config:    $CONFIG_FILE${NC}"
-echo -e "  ${DIM}Log:       $OPENCLAW_DIR/gateway.log${NC}"
+echo -e "  ${BOLD}Workspace:${NC} $WORKSPACE"
+echo -e "  ${BOLD}Config:${NC}    $CONFIG_FILE"
+if [[ "$CLAUDE_AVAILABLE" == false ]]; then
+  echo
+  echo -e "  ${YELLOW}Builder agent disabled.${NC} Install claude CLI and re-run setup"
+  echo -e "  to enable complex coding tasks: ${CYAN}https://claude.ai/download${NC}"
+fi
 echo
