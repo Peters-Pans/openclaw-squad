@@ -193,41 +193,27 @@
         "default": true,
         "name": "commander",
         "workspace": ".agents/commander",
-        "agentDir": "/home/ubuntu/.openclaw/agents/commander/agent",
         "model": "bailian/kimi-k2.5",
         "identity": {
           "name": "🧠 指挥官"
         },
         "tools": {
-          "allow": [
-            "exec",
-            "read",
-            "write"
-          ],
-          "deny": [
-            "browser"
-          ]
+          "deny": ["browser", "exec"]
+        },
+        "subagents": {
+          "allowAgents": ["scout", "scribe", "artisan", "reviewer"]
         }
       },
       {
         "id": "artisan",
         "name": "artisan",
         "workspace": ".agents/artisan",
-        "agentDir": "/home/ubuntu/.openclaw/agents/artisan/agent",
         "model": "bailian/qwen3-coder-plus",
         "identity": {
           "name": "🛠️ 工匠"
         },
         "tools": {
-          "allow": [
-            "exec",
-            "read",
-            "write",
-            "edit"
-          ],
-          "deny": [
-            "browser"
-          ]
+          "deny": ["browser"]
         }
       },
       {
@@ -250,35 +236,24 @@
         "id": "scribe",
         "name": "scribe",
         "workspace": ".agents/scribe",
-        "agentDir": "/home/ubuntu/.openclaw/agents/scribe/agent",
         "model": "bailian/kimi-k2.5",
         "identity": {
           "name": "✍️ 笔帖式"
         },
         "tools": {
-          "allow": [
-            "read",
-            "write"
-          ],
-          "deny": [
-            "exec",
-            "browser"
-          ]
+          "deny": ["exec", "browser"]
         }
       },
       {
         "id": "reviewer",
         "name": "reviewer",
         "workspace": ".agents/reviewer",
-        "agentDir": "/home/ubuntu/.openclaw/agents/reviewer/agent",
         "model": "bailian/qwen3-max-2026-01-23",
         "identity": {
           "name": "🔍 审查官"
         },
         "tools": {
-          "deny": [
-            "browser"
-          ]
+          "deny": ["browser"]
         }
       }
     ]

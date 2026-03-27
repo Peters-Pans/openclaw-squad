@@ -1,20 +1,16 @@
-# HEARTBEAT.md - 心跳检查清单
+# 心跳检查清单
 
-## 检查顺序
+每次心跳执行以下检查：
 
-### 1. Cron 巡检
-运行 `openclaw cron list`，检查是否有 job 的 Agent ID 列显示 `-`（即缺少 agent 绑定）。
-发现问题时**通知用户**，给出具体的修复命令，例如：
-「发现 cron job『xxx』没有绑定 agent，请运行：openclaw cron edit <jobId> --agent commander」
+## 1. Cron 巡检
+使用内置 `cron` 工具（不是 exec 命令）列出所有 job，检查：
+- 有没有 job 缺少 agentId → 通知用户手动修复
+- 有没有 job 未使用 isolated session → 通知用户手动修复
 
-### 2. 审查结果通知
-运行：`exec ls ~/workspace/code-reviews/feedback/`
-有文件时逐一读取（用绝对路径：`~/workspace/code-reviews/feedback/<文件名>`），汇总审查结论告知用户。
+## 2. 审查结果通知
+检查 ~/workspace/code-reviews/feedback/ 目录（用 read 工具），有新文件就读取并告知用户审查结论。
 
-### 3. 任务进度（每日18:00触发时）
-运行：`exec ls ~/workspace/tasks/active/`
-有文件时输出进度摘要。
+## 3. 任务进度（可选）
+检查 ~/workspace/tasks/active/ 有没有需要跟进的任务。
 
-## 回复规则
-- 有需要处理的事项 → 直接输出检查结果
-- 无需要处理的事项 → 回复 `HEARTBEAT_OK`
+没有需要处理的事项时，回复 HEARTBEAT_OK。

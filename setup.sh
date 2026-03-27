@@ -152,7 +152,8 @@ cat > "$CONFIG_FILE" << JSONEOF
         "workspace": ".agents/commander",
         "model": "$PROVIDER_NAME/$CMD_MODEL",
         "identity": { "name": "🧠 指挥官" },
-        "tools": { "deny": ["browser"] }
+        "tools": { "deny": ["browser", "exec"] },
+        "subagents": { "allowAgents": ["scout", "scribe", "artisan", "reviewer"] }
       },
       {
         "id": "artisan", "name": "artisan",
@@ -225,6 +226,34 @@ install_agent() {
   fi
   if [[ -f "$BEAT_SRC" ]]; then
     cp "$BEAT_SRC" "$DEST/HEARTBEAT.md"
+  fi
+
+  # Create TOOLS.md for commander with dispatch instructions
+  if [[ "$ID" == "commander" ]]; then
+    cat > "$DEST/TOOLS.md" << 'TOOLSEOF'
+# TOOLS.md - 工具使用备忘
+
+## ⚠️ 调度子 Agent（最重要）
+
+调度内部团队成员用 sessions_spawn：
+
+```
+sessions_spawn(agentId="scout",   task="请调研...", mode="run")
+sessions_spawn(agentId="scribe",  task="请写...",   mode="run")
+sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
+```
+
+- mode 固定用 "run"
+- 不要用 sessions_send(agentId=...) — agentId 在 sessions_send 中无效
+
+## sessions_send 备用格式（直接寻址）
+
+```
+sessions_send(sessionKey="agent:scout:main",   message="...")
+sessions_send(sessionKey="agent:scribe:main",  message="...")
+sessions_send(sessionKey="agent:artisan:main", message="...")
+```
+TOOLSEOF
   fi
 
   info "  $ID → $DEST"

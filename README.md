@@ -105,6 +105,9 @@ The installer will guide you through: provider config → model selection → ga
 - **`tools.allow` is a strict whitelist** — it blocks `sessions_*`, `web_search`, `subagents` etc. Use `deny` instead
 - **Cron jobs need `--agent`** — bare jobs (no agentId) run as main session which pollutes context
 - **Absolute paths in SOUL.md**: use `~/workspace/` not `/home/user/workspace/`
+- **Dispatch tool is `sessions_spawn`** — `agentToAgent` is not a tool name; `sessions_send(agentId=...)` silently fails because `sessions.resolve` ignores the `agentId` param. Use `sessions_spawn(agentId="scout", task="...", mode="run")` instead; requires `subagents.allowAgents` in agent config
+- **Commander must deny exec** — if exec is available, the LLM will use curl instead of dispatching to Scout, bypassing the multi-agent architecture entirely
+- **Heartbeat should use built-in `cron` tool** — not `exec openclaw cron list`; exec in heartbeat context may fail
 
 ### Skills Included
 
@@ -141,7 +144,7 @@ The installer will guide you through: provider config → model selection → ga
 
 | 决策 | 选择 | 原因 |
 |------|------|------|
-| 调度机制 | `agentToAgent`（走 main session） | Agent 需要 SOUL.md 上下文 |
+| 调度机制 | `sessions_spawn(agentId=..., mode="run")` | `agentToAgent` 不是工具名；`sessions_send(agentId=...)` 静默失败 |
 | Agent 间通知 | 文件流（`feedback/` → heartbeat 读取） | isolated session 间 `sessions_send` 不可靠 |
 | Cron 自动修复 | 检测 + 通知用户 | Agent 在 heartbeat 上下文中无法执行 `openclaw cron edit` |
 | 每 Agent 工具 | 只用 `deny` 列表 | `allow` 白名单会屏蔽 `sessions_*`、`web_search` 等高级工具 |
