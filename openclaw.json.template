@@ -5,7 +5,7 @@
   },
   "env": {
     "vars": {
-      "HTTPS_PROXY": "socks5://127.0.0.1:1080  # optional"
+      "HTTPS_PROXY": ""
     }
   },
   "models": {
@@ -220,7 +220,6 @@
         "id": "scout",
         "name": "scout",
         "workspace": ".agents/scout",
-        "agentDir": "/home/ubuntu/.openclaw/agents/scout/agent",
         "model": "bailian/qwen3.5-plus",
         "identity": {
           "name": "📰 斥候"

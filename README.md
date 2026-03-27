@@ -87,12 +87,12 @@ The installer will guide you through: provider config → model selection → ga
    ```bash
    # Reviewer scan every 30 min
    openclaw cron add --name "reviewer-scan" --agent reviewer \
-     --cron "*/30 * * * *" --session isolated \
+     --cron "*/30 * * * *" --session isolated --best-effort-deliver \
      --message "Check ~/workspace/code-reviews/pending/..."
 
    # Commander heartbeat every 2h
    openclaw cron add --name "commander-heartbeat" --agent commander \
-     --cron "0 */2 * * *" --session isolated \
+     --cron "0 */2 * * *" --session isolated --best-effort-deliver \
      --message "Read HEARTBEAT.md and follow instructions."
    ```
 

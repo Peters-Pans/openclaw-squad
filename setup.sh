@@ -120,6 +120,37 @@ CONFIG_FILE="$OPENCLAW_DIR/openclaw.json"
 # Stop gateway if running (avoid config conflict)
 pkill -f "openclaw.*gateway" 2>/dev/null && { warn "Stopped existing gateway"; sleep 1; } || true
 
+# JSON-escape helper (handles quotes, backslashes, special chars in API keys)
+json_str() { python3 -c "import json,sys; print(json.dumps(sys.stdin.read()))" <<< "$1"; }
+
+API_KEY_J=$(json_str "$API_KEY")
+GW_TOKEN_J=$(json_str "$GW_TOKEN")
+BRAVE_KEY_J=$(json_str "${BRAVE_KEY:-}")
+PROVIDER_URL_J=$(json_str "$PROVIDER_URL")
+BRAVE_ENABLED=$([ -n "$BRAVE_KEY" ] && echo "true" || echo "false")
+
+# Build unique model list (avoid duplicate ids when multiple agents share a model)
+declare -A _SEEN_MODELS
+_MODELS_JSON=""
+_add_model() {
+  local id="$1" input="$2" ctx="$3" maxTok="$4" compat="$5"
+  [[ -n "${_SEEN_MODELS[$id]+x}" ]] && return
+  _SEEN_MODELS["$id"]=1
+  local entry
+  if [[ -n "$compat" ]]; then
+    entry="{ \"id\": \"$id\", \"name\": \"$id\", \"input\": $input, \"reasoning\": false, \"cost\": {\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0}, \"contextWindow\": $ctx, \"maxTokens\": $maxTok, \"compat\": {\"thinkingFormat\": \"$compat\"} }"
+  else
+    entry="{ \"id\": \"$id\", \"name\": \"$id\", \"input\": $input, \"reasoning\": false, \"cost\": {\"input\":0,\"output\":0,\"cacheRead\":0,\"cacheWrite\":0}, \"contextWindow\": $ctx, \"maxTokens\": $maxTok }"
+  fi
+  [[ -n "$_MODELS_JSON" ]] && _MODELS_JSON+=$',\n          '
+  _MODELS_JSON+="$entry"
+}
+_add_model "$CMD_MODEL"      '["text","image"]' 262144  32768 "qwen"
+_add_model "$SCOUT_MODEL"    '["text","image"]' 1000000 65536 "qwen"
+_add_model "$SCRIBE_MODEL"   '["text","image"]' 262144  32768 "qwen"
+_add_model "$ARTISAN_MODEL"  '["text"]'         1000000 65536 ""
+_add_model "$REVIEWER_MODEL" '["text"]'         262144  65536 "qwen"
+
 # Write full config from scratch (gateway is stopped)
 cat > "$CONFIG_FILE" << JSONEOF
 {
@@ -128,15 +159,11 @@ cat > "$CONFIG_FILE" << JSONEOF
     "mode": "merge",
     "providers": {
       "$PROVIDER_NAME": {
-        "baseUrl": "$PROVIDER_URL",
-        "apiKey": "$API_KEY",
+        "baseUrl": $PROVIDER_URL_J,
+        "apiKey": $API_KEY_J,
         "api": "openai-completions",
         "models": [
-          { "id": "$CMD_MODEL",      "name": "$CMD_MODEL",      "input": ["text","image"], "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 262144, "maxTokens": 32768, "compat": {"thinkingFormat":"qwen"} },
-          { "id": "$SCOUT_MODEL",    "name": "$SCOUT_MODEL",    "input": ["text","image"], "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 1000000, "maxTokens": 65536, "compat": {"thinkingFormat":"qwen"} },
-          { "id": "$SCRIBE_MODEL",   "name": "$SCRIBE_MODEL",   "input": ["text","image"], "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 262144, "maxTokens": 32768, "compat": {"thinkingFormat":"qwen"} },
-          { "id": "$ARTISAN_MODEL",  "name": "$ARTISAN_MODEL",  "input": ["text"],         "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 1000000, "maxTokens": 65536 },
-          { "id": "$REVIEWER_MODEL", "name": "$REVIEWER_MODEL", "input": ["text"],         "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 262144, "maxTokens": 65536, "compat": {"thinkingFormat":"qwen"} }
+          $_MODELS_JSON
         ]
       }
     }
@@ -187,19 +214,18 @@ cat > "$CONFIG_FILE" << JSONEOF
     ]
   },
   "tools": {
-    "agentToAgent": { "enabled": true, "allow": ["*"] },
-    "web": { "search": { "enabled": $([ -n "$BRAVE_KEY" ] && echo "true" || echo "false"), "provider": "brave", "maxResults": 5 } }
+    "web": { "search": { "enabled": $BRAVE_ENABLED, "provider": "brave", "maxResults": 5 } }
   },
-  "commands": { "native": "auto", "nativeSkills": "auto", "restart": true },
+  "commands": { "native": "auto", "nativeSkills": "auto", "restart": true, "ownerDisplay": "raw" },
   "gateway": {
     "mode": "local",
-    "auth": { "mode": "token", "token": "$GW_TOKEN" }
+    "auth": { "mode": "token", "token": $GW_TOKEN_J }
   },
   "plugins": {
     "entries": {
       "brave": {
-        "enabled": $([ -n "$BRAVE_KEY" ] && echo "true" || echo "false"),
-        "config": { "webSearch": { "apiKey": "${BRAVE_KEY:-}" } }
+        "enabled": $BRAVE_ENABLED,
+        "config": { "webSearch": { "apiKey": $BRAVE_KEY_J } }
       }
     },
     "allow": ["brave"]
