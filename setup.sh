@@ -134,6 +134,7 @@ cat > "$CONFIG_FILE" << JSONEOF
         "models": [
           { "id": "$CMD_MODEL",      "name": "$CMD_MODEL",      "input": ["text","image"], "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 262144, "maxTokens": 32768, "compat": {"thinkingFormat":"qwen"} },
           { "id": "$SCOUT_MODEL",    "name": "$SCOUT_MODEL",    "input": ["text","image"], "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 1000000, "maxTokens": 65536, "compat": {"thinkingFormat":"qwen"} },
+          { "id": "$SCRIBE_MODEL",   "name": "$SCRIBE_MODEL",   "input": ["text","image"], "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 262144, "maxTokens": 32768, "compat": {"thinkingFormat":"qwen"} },
           { "id": "$ARTISAN_MODEL",  "name": "$ARTISAN_MODEL",  "input": ["text"],         "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 1000000, "maxTokens": 65536 },
           { "id": "$REVIEWER_MODEL", "name": "$REVIEWER_MODEL", "input": ["text"],         "reasoning": false, "cost": {"input":0,"output":0,"cacheRead":0,"cacheWrite":0}, "contextWindow": 262144, "maxTokens": 65536, "compat": {"thinkingFormat":"qwen"} }
         ]
@@ -266,9 +267,19 @@ success "All agents installed"
 
 # ── Step 4: Start Gateway ─────────────────────────────────────────────────────
 info "Starting openclaw gateway..."
-nohup openclaw gateway > "$OPENCLAW_DIR/gateway.log" 2>&1 &
-GW_PID=$!
-echo -e "  ${DIM}PID $GW_PID · log: $OPENCLAW_DIR/gateway.log${NC}"
+
+# Try systemd first (survives reboot), fall back to nohup
+if openclaw gateway install 2>/dev/null; then
+  systemctl --user daemon-reload 2>/dev/null || true
+  systemctl --user enable openclaw-gateway.service 2>/dev/null || true
+  systemctl --user restart openclaw-gateway.service
+  echo -e "  ${DIM}Managed by systemd (auto-starts on login)${NC}"
+else
+  nohup openclaw gateway > "$OPENCLAW_DIR/gateway.log" 2>&1 &
+  GW_PID=$!
+  echo -e "  ${DIM}PID $GW_PID · log: $OPENCLAW_DIR/gateway.log${NC}"
+  warn "systemd install failed — gateway will not survive reboot"
+fi
 
 # Wait for gateway to be ready
 MAX_WAIT=15
@@ -292,6 +303,7 @@ openclaw cron add \
   --agent reviewer \
   --cron "*/30 * * * *" \
   --session isolated \
+  --best-effort-deliver \
   --message "Check ~/workspace/code-reviews/pending/ for files. For each file: review it, write findings to ~/workspace/code-reviews/feedback/<filename>-review.md, move reviewed file to ~/workspace/code-reviews/reviewed/." \
   2>/dev/null && success "Cron: reviewer-scan (every 30 min)" \
              || warn "Failed to add reviewer-scan cron — add manually later"
@@ -302,6 +314,7 @@ openclaw cron add \
   --agent commander \
   --cron "0 */2 * * *" \
   --session isolated \
+  --best-effort-deliver \
   --message "Read HEARTBEAT.md and follow all instructions." \
   2>/dev/null && success "Cron: commander-heartbeat (every 2h)" \
              || warn "Failed to add commander-heartbeat cron — add manually later"
