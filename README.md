@@ -44,6 +44,17 @@ External:
 
 ### Quick Start
 
+```bash
+git clone https://github.com/Peters-Pans/openclaw-squad
+cd openclaw-squad
+bash setup.sh
+```
+
+The installer will guide you through: provider config → model selection → gateway token → Brave search → workspace → done.
+
+<details>
+<summary>Manual setup (advanced)</summary>
+
 1. **Clone and configure**
    ```bash
    git clone https://github.com/Peters-Pans/openclaw-squad
@@ -84,6 +95,8 @@ External:
      --cron "0 */2 * * *" --session isolated \
      --message "Read HEARTBEAT.md and follow instructions."
    ```
+
+</details>
 
 ### Lessons Learned (from real deployment)
 
@@ -142,7 +155,13 @@ External:
 
 ### 快速开始
 
-参考英文部分的 Quick Start，模型名称替换为你实际配置的 provider/model 格式（如 `bailian/qwen3.5-plus`）。
+```bash
+git clone https://github.com/Peters-Pans/openclaw-squad
+cd openclaw-squad
+bash setup.sh
+```
+
+安装脚本会引导你完成：provider 配置 → 模型选择 → gateway token → 网络搜索 → 工作区 → 完成。
 
 ### 文件结构
 
