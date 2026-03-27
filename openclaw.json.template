@@ -198,7 +198,7 @@
           "name": "🧠 指挥官"
         },
         "tools": {
-          "deny": ["browser", "exec"]
+          "deny": ["browser", "exec", "web_search", "web_fetch"]
         },
         "subagents": {
           "allowAgents": ["scout", "scribe", "artisan", "reviewer"]
@@ -264,7 +264,8 @@
         "provider": "brave",
         "maxResults": 5
       }
-    }
+    },
+    "sessions": { "visibility": "all" }
   },
   "commands": {
     "native": "auto",

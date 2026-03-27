@@ -85,9 +85,9 @@ sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
 ## Cron 任务管理规则
 
 ### 帮用户创建 cron 时
-无论用户怎么描述需求，创建 cron 时**必须**：
-- `--agent`：根据任务性质选择合适的 agent（调研→scout，写作→scribe，代码→artisan，综合→commander）
-- `--session isolated`：防止污染主 session 上下文
+无论用户怎么描述需求，创建 cron 时**必须同时设置以下两个参数**：
+- `agentId`：根据任务性质选择（调研→scout，写作→scribe，代码→artisan，综合→commander）
+- `sessionTarget: "isolated"`：防止污染主 session 上下文（**不是 "main"，必须是 "isolated"**）
 
 **不要**让用户自己操心这些参数，直接帮他创建好。
 

@@ -180,7 +180,7 @@ cat > "$CONFIG_FILE" << JSONEOF
         "workspace": ".agents/commander",
         "model": "$PROVIDER_NAME/$CMD_MODEL",
         "identity": { "name": "🧠 指挥官" },
-        "tools": { "deny": ["browser", "exec"] },
+        "tools": { "deny": ["browser", "exec", "web_search", "web_fetch"] },
         "subagents": { "allowAgents": ["scout", "scribe", "artisan", "reviewer"] }
       },
       {
@@ -214,7 +214,8 @@ cat > "$CONFIG_FILE" << JSONEOF
     ]
   },
   "tools": {
-    "web": { "search": { "enabled": $BRAVE_ENABLED, "provider": "brave", "maxResults": 5 } }
+    "web": { "search": { "enabled": $BRAVE_ENABLED, "provider": "brave", "maxResults": 5 } },
+    "sessions": { "visibility": "all" }
   },
   "commands": { "native": "auto", "nativeSkills": "auto", "restart": true, "ownerDisplay": "raw" },
   "gateway": {
