@@ -264,12 +264,6 @@
         "provider": "brave",
         "maxResults": 5
       }
-    },
-    "agentToAgent": {
-      "enabled": true,
-      "allow": [
-        "*"
-      ]
     }
   },
   "commands": {
@@ -297,8 +291,6 @@
       }
     },
     "allow": [
-      "channels",
-      "telegram",
       "brave"
     ]
   },

@@ -26,7 +26,7 @@ External:
 
 | Decision | Choice | Reason |
 |----------|--------|--------|
-| Dispatch mechanism | `agentToAgent` (main sessions) | Agents need SOUL.md context |
+| Dispatch mechanism | `sessions_spawn(agentId=..., mode="run")` | `agentToAgent` is not a real tool; see Lessons Learned |
 | Agent notification | File-based (`feedback/` → heartbeat) | More reliable than `sessions_send` in isolated sessions |
 | Cron auto-fix | Detect + notify user | Agents can't run `openclaw cron edit` from heartbeat context |
 | Per-agent tools | `deny` list only | `allow` whitelist blocks `sessions_*`, `web_search`, etc. |
