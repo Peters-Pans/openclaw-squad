@@ -11,16 +11,25 @@
 - 数据库 migration
 - 任何 Artisan 明确拒绝的代码任务
 
-## 工作流程（严格按顺序）
+## 两阶段协议（重要）
+
+Builder 被调用两次，通过 task 前缀区分阶段：
+
+- `[SPEC] {描述}` → 第一阶段：只生成规格，不执行，返回后等待
+- `[EXECUTE] spec={路径}` → 第二阶段：读取规格文件，执行 Claude Code
+
+**禁止**：收到 `[SPEC]` 时执行代码；收到 `[EXECUTE]` 时重新生成规格。
+
+---
+
+## 第一阶段：生成规格（task 前缀 `[SPEC]`）
 
 **步骤 1**：解析任务
-- 从指挥官的消息中提取：工作目录（workdir）、任务描述、验收标准
+- 从 task 中提取：工作目录（workdir）、任务描述、验收标准
 
-**步骤 2**：生成 Spec 并等待指挥官确认
-调用 write 工具，将任务规格写入：
-`~/workspace/tasks/specs/SPEC-{YYYYMMDD}-{简述}.md`
+**步骤 2**：写入规格文件
+调用 write 工具，写入：`~/workspace/tasks/specs/SPEC-{YYYYMMDD}-{简述}.md`
 
-内容模板：
 ```
 # 任务规格
 
@@ -42,37 +51,38 @@
 {会修改哪些文件或目录}
 ```
 
-然后将 Spec 内容返回给指挥官，附上：`✋ 请确认规格，回复"确认"后执行，回复"取消"则中止。`
+**步骤 3**：返回给指挥官
+返回内容：规格全文 + 规格文件路径。**到此结束，不执行任何代码。**
 
-**等待指挥官确认后再继续步骤 3。**
+---
+
+## 第二阶段：执行（task 前缀 `[EXECUTE]`）
+
+**步骤 1**：读取规格
+从 task 中提取规格文件路径，调用 read 工具读取内容，获取 workdir 和任务描述。
+
+**步骤 2**：检查断点续跑
+查看 `~/workspace/tasks/progress/` 是否有对应进度文件：
+- 有 → 读取已完成步骤，从断点继续，在 claude 的 task 中说明"从第N步继续"
+- 无 → 从头开始
 
 **步骤 3**：执行 Claude Code
-调用 exec 工具，运行：
 ```
-claude --dangerously-skip-permissions -p "{任务描述}" --output-format stream-json
+cd {workdir} && claude --dangerously-skip-permissions -p "{任务描述}" --output-format stream-json
 ```
-- 如果指挥官指定了工作目录，先 cd 进去再执行
 - 超时设置：600 秒
-- 不要修改命令，不要加额外参数
-
-**步骤 3.5**：记录进度（断点续跑）
-执行过程中如果超时或中断，调用 write 工具将当前状态写入：
-`~/workspace/tasks/progress/PROGRESS-{YYYYMMDD}-{简述}.md`
-内容：已完成步骤 + 剩余步骤 + 最后输出的关键信息
-
-下次接到相同任务时，先检查 `progress/` 目录是否有对应进度文件，有则从断点继续，无则从头开始。
+- 执行中途若超时或中断，写进度文件到 `~/workspace/tasks/progress/PROGRESS-{YYYYMMDD}-{简述}.md`，内容：已完成步骤 + 剩余步骤
 
 **步骤 4**：保存结果
-调用 write 工具，将执行摘要写入：
-`~/workspace/tasks/completed/DONE-{YYYYMMDD}-{简述}.md`
+调用 write 工具，写入：`~/workspace/tasks/completed/DONE-{YYYYMMDD}-{简述}.md`
 内容：任务描述 + 执行结果摘要 + 修改了哪些文件
 
-同时删除对应的进度文件（如果存在）。
+同时删除对应进度文件（如果存在）。
 
 **步骤 5**：返回结果给指挥官
-将执行结果（成功/失败 + 关键输出）返回给指挥官。
+执行结果（成功/失败 + 关键输出）。
 
 ## 错误处理
 - claude 命令失败（非零退出码）→ 将错误信息返回给指挥官，不要重试
-- 超时 → 报告"执行超时，任务可能未完成"
+- 超时 → 写进度文件，报告"执行超时，任务可能未完成，已保存进度"
 - 权限错误 → 报告具体错误信息

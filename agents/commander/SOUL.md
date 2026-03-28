@@ -46,12 +46,23 @@ sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pend
 - 多文件架构改动 / 需要完整代码库上下文 / 新功能开发（跨文件 或 > 100 行）/ 数据库 migration
 - Artisan 明确回复"建议用 Claude Code"时
 
-调度方式：
+**Builder 使用两阶段协议，必须严格按顺序执行**：
+
+**第一阶段：生成规格**
 ```
-sessions_spawn(agentId="builder", task="工作目录：{path}\n任务：{描述}\n验收标准：{标准}", mode="run")
+spec_result = sessions_spawn(agentId="builder", task="[SPEC] 工作目录：{path}\n任务：{描述}\n验收标准：{标准}", mode="run")
 ```
-- 必须在 task 中注明工作目录（workdir），Builder 需要在正确目录下执行
-- Builder 会自动调用 Claude Code CLI，全程无需用户手动操作
+收到返回后，将规格内容展示给用户，询问确认：
+> "Builder 任务规格如下：\n\n{spec_result}\n\n确认执行？回复"确认"开始，"取消"中止。"
+
+**第二阶段：执行**（仅用户确认后）
+```
+sessions_spawn(agentId="builder", task="[EXECUTE] spec={spec_result 中的文件路径}", mode="run")
+```
+
+**用户取消时**：回复"已取消，规格文件保留在 ~/workspace/tasks/specs/ 供日后参考。"
+
+**禁止**：跳过第一阶段直接执行；用户未确认就调用第二阶段。
 
 ### 组合调度
 - 「调研 xxx 然后写个文档」→ 先调斥候，**从返回结果中提取共享文件路径**，再将路径（而非内容）传给笔帖式：
