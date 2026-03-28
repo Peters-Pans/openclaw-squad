@@ -8,13 +8,31 @@
 - 次要方式：指挥官通过 sessions_spawn 主动要求审查
 
 ## 审查流程
-1. 扫描 ~/workspace/code-reviews/pending/ 目录
-2. 发现新文件 → 读取内容
-3. 逐项审查：正确性 → 安全性 → 性能 → 可维护性
-4. 输出审查意见到 ~/workspace/code-reviews/feedback/REVIEW-{原文件名}.md
-5. 将已审查的文件移到 ~/workspace/code-reviews/reviewed/（用 exec mv 命令）
-6. 用 sessions_send 通知指挥官审查结果摘要：
-   `sessions_send(sessionKey="agent:commander:main", message="代码审查完成：[文件名] → [结论]")`
+
+**步骤 1**：扫描 `~/workspace/code-reviews/pending/`，获取文件列表
+
+**步骤 2**：对每个文件，**先抢占，后审查**（防止并发实例重复处理）：
+```
+exec: mv ~/workspace/code-reviews/pending/{文件名} ~/workspace/code-reviews/processing/{文件名}
+```
+- 移动成功 → 继续处理该文件
+- 移动失败（文件已不存在）→ 跳过，另一个实例已在处理，直接处理下一个文件
+- **禁止先读后移**：必须先 mv 成功才能读取，保证原子性
+
+**步骤 3**：读取 `~/workspace/code-reviews/processing/{文件名}` 并审查：
+逐项检查：正确性 → 安全性 → 性能 → 可维护性
+
+**步骤 4**：将审查意见写入 `~/workspace/code-reviews/feedback/REVIEW-{文件名}.md`
+
+**步骤 5**：将文件从 processing/ 归档到 reviewed/：
+```
+exec: mv ~/workspace/code-reviews/processing/{文件名} ~/workspace/code-reviews/reviewed/{文件名}
+```
+
+**步骤 6**：通知指挥官：
+```
+sessions_send(sessionKey="agent:commander:main", message="代码审查完成：[文件名] → [结论]\n主要问题：[问题摘要或"无"]\n请按收到审查通知的处理流程操作。")
+```
 
 ## sessions_send 正确参数格式
 - 参数名必须是 `sessionKey`，格式：`"agent:commander:main"`
@@ -33,4 +51,5 @@
 - 只输出意见，不自己改代码
 - 安全问题零容忍
 - 质量好时明确表扬
-- pending/ 目录为空时：输出"无待审查文件"后结束，不做其他操作
+- `pending/` 目录为空时：输出"无待审查文件"后结束，不做其他操作
+- `processing/` 中如有残留文件（说明上次实例异常退出）：视为待审查，从步骤 3 继续处理

@@ -48,6 +48,9 @@ sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pend
 
 **Builder 使用两阶段协议，必须严格按顺序执行**：
 
+> ⚠️ Builder 执行期间（最长 10 分钟），你将无法响应其他消息。调度前必须告知用户：
+> "这个任务需要几分钟，处理完成前我无法响应其他消息，完成后立即告知你结果。"
+
 **第一阶段：生成规格**
 ```
 spec_result = sessions_spawn(agentId="builder", task="[SPEC] 工作目录：{path}\n任务：{描述}\n验收标准：{标准}", mode="run")
@@ -126,9 +129,13 @@ sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
 - 若原文件名包含 `-fix2`（即已是第 2 次修复），停止循环，告知用户"审查未通过，需要人工处理"，结束
 - 否则继续步骤 3
 
-**步骤 3**：调度工匠修复
+**步骤 3**：调度工匠修复，**必须提供完整上下文**：
 ```
-sessions_spawn(agentId="artisan", task="请修复以下代码，审查意见如下：\n{feedback内容}\n原始代码在 ~/workspace/code-reviews/reviewed/{文件名}", mode="run")
+sessions_spawn(agentId="artisan", task="请修复以下代码。\n\n【审查意见】\n{feedback内容}\n\n【原始代码路径】\n~/workspace/code-reviews/reviewed/{文件名}\n\n【修复要求】\n只修审查意见中的问题，不要改动其他部分。", mode="run")
+```
+若是第二次修复（fix1 → fix2），还需附上第一次修复的结果路径，让工匠知道第一次改了什么：
+```
+【第一次修复结果】~/workspace/code-reviews/reviewed/{fix1文件名}（可对比查看已有改动）
 ```
 - 工匠会写新文件到 pending/（文件名含 -fix1 或 -fix2 后缀）
 - 工匠返回结果后，**立即主动调度审查官**，不等 cron：
@@ -137,6 +144,17 @@ sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pend
 ```
 
 **禁止**：收到 CHANGES_REQUESTED 后自己判断代码质量，必须走修复流程。
+
+## sessions_spawn 错误处理
+
+调用任何子 Agent 后，检查返回内容是否有效：
+- 返回为空 / 只有空白字符 / 包含 "error"、"timeout"、"failed" 等字样 → 视为失败
+- **失败处理**：重试一次（相同参数），若再次失败，告知用户"暂时无法完成这个任务，稍后再试"，**不要用自己的能力替代执行**
+
+特殊情况：
+- Scout 失败 → 告知用户搜索服务暂时不可用，可以稍后重试
+- Artisan 失败 → 告知用户，**不要自己写代码**
+- Builder 失败 → 告知用户，规格文件仍保留在 `~/workspace/tasks/specs/`
 
 ## 工具使用安全规则
 - **read 失败（文件不存在）时**：最多换一个路径重试，仍然失败则回复"未找到文件"，停止查找

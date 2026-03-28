@@ -254,7 +254,7 @@ echo
 
 # ── Step 1: Workspace ─────────────────────────────────────────────────────────
 info "Creating workspace directories..."
-mkdir -p "$WORKSPACE"/{shared,reports,tasks/{specs,progress,completed},code-reviews/{pending,feedback,reviewed},docs}
+mkdir -p "$WORKSPACE"/{shared,reports,tasks/{specs,progress,completed},code-reviews/{pending,processing,feedback,reviewed},docs}
 success "$T_WORKSPACE_READY: $WORKSPACE"
 
 # ── Step 2: openclaw.json ─────────────────────────────────────────────────────
@@ -407,8 +407,13 @@ install_agent() {
   local ID="$1"
   local DEST="$AGENTS_DIR/$ID"
   mkdir -p "$DEST"
-  [[ -f "$SCRIPT_DIR/agents/$ID/SOUL.md"      ]] && cp "$SCRIPT_DIR/agents/$ID/SOUL.md"      "$DEST/SOUL.md"
-  [[ -f "$SCRIPT_DIR/agents/$ID/HEARTBEAT.md" ]] && cp "$SCRIPT_DIR/agents/$ID/HEARTBEAT.md" "$DEST/HEARTBEAT.md"
+  # Copy and substitute workspace path placeholder
+  if [[ -f "$SCRIPT_DIR/agents/$ID/SOUL.md" ]]; then
+    sed "s|~/workspace|$WORKSPACE|g" "$SCRIPT_DIR/agents/$ID/SOUL.md" > "$DEST/SOUL.md"
+  fi
+  if [[ -f "$SCRIPT_DIR/agents/$ID/HEARTBEAT.md" ]]; then
+    sed "s|~/workspace|$WORKSPACE|g" "$SCRIPT_DIR/agents/$ID/HEARTBEAT.md" > "$DEST/HEARTBEAT.md"
+  fi
   info "  $ID → $DEST"
 }
 

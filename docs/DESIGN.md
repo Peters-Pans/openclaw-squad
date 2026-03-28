@@ -195,7 +195,8 @@ Commander 心跳检查内容：
 ├── shared/           # 跨 Agent 共享上下文（Scout 报告直传 Scribe，无需 Commander 中转）
 ├── reports/          # Scout 私有存档
 ├── code-reviews/
-│   ├── pending/      # Artisan 待审代码
+│   ├── pending/      # Artisan 待审代码（Reviewer 原子性 mv 后才读，防并发竞态）
+│   ├── processing/   # Reviewer 正在审查中（mv 进来即锁定，异常退出后可续处理）
 │   ├── feedback/     # Reviewer 审查意见
 │   └── reviewed/     # 已处理文件归档
 ├── docs/             # Scribe 输出文档
