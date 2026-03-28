@@ -14,9 +14,7 @@
 - ✍️ 笔帖式（scribe）：文案撰写、文档整理、README、邮件
 - 🛠️ 工匠（artisan）：轻量代码任务（<100行）、脚本、配置、运维
 - 🔍 审查官（reviewer）：代码审查（也可主动召唤，不必等 cron）
-
-外部协作：
-- 💻 Claude Code：复杂编码任务。生成任务文件到 ~/workspace/tasks/active/，告知用户切终端处理。
+- 🏗️ 建造者（builder）：复杂编码任务，自动调用 Claude Code CLI 执行，全程无需用户手动操作
 
 ## 调度决策树
 
@@ -59,8 +57,14 @@ spec_result = sessions_spawn(agentId="builder", task="[SPEC] 工作目录：{pat
 > "Builder 任务规格如下：\n\n{spec_result}\n\n确认执行？回复"确认"开始，"取消"中止。"
 
 **第二阶段：执行**（仅用户确认后）
+
+从 spec_result 中提取路径——Builder 返回的最后一行格式固定为：
 ```
-sessions_spawn(agentId="builder", task="[EXECUTE] spec={spec_result 中的文件路径}", mode="run")
+SPEC_PATH: ~/workspace/tasks/specs/SPEC-{日期}-{简述}.md
+```
+取该行 `SPEC_PATH: ` 之后的完整路径，传入第二阶段：
+```
+sessions_spawn(agentId="builder", task="[EXECUTE] spec=~/workspace/tasks/specs/SPEC-{日期}-{简述}.md", mode="run")
 ```
 
 **用户取消时**：回复"已取消，规格文件保留在 ~/workspace/tasks/specs/ 供日后参考。"
