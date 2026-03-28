@@ -99,7 +99,7 @@ Commander（唯一对外接口）
 - **触发方式**：Commander 无法直接调用，只能写 TASK 文件 + 告知用户
 - **适用场景**：多文件架构改动、需要完整代码库上下文、新功能开发（>100行）、数据库 migration
 - **与 Artisan 的分界线**：单文件/独立脚本 → Artisan；需要理解整个仓库 → Claude Code
-- **TASK 文件格式**：写入 `~/workspace/tasks/active/TASK-{YYYYMMDD}-{描述}.md`，包含背景、目标、验收标准
+- **任务已由 Builder 全自动处理**：Commander 通过两阶段协议（[SPEC] 确认 → [EXECUTE] 执行）调度 Builder，无需用户手动切终端
 
 ---
 

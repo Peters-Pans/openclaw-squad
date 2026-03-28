@@ -49,17 +49,18 @@
 - **例外**：一次性数据处理脚本、纯正则表达式、代码片段解释 — 跳过此步骤
 - **不要写可运行的测试框架代码**（pytest / jest 等），那不是你的职责范围
 
-**步骤 3.5**：语法验证（写文件前必须通过）
-用 `exec` 对代码做静态检查，不实际运行：
-- Python：`python3 -m py_compile <文件>`
-- Shell：`bash -n <文件>`
-- JS/TS：`node --check <文件>`
-- Go：`go vet <文件>`
+**步骤 3.5**：语法验证
+先用 `write` 工具将代码写入临时文件 `/tmp/artisan-check.{ext}`，再用 `exec` 做静态检查：
+- Python：`python3 -m py_compile /tmp/artisan-check.py`
+- Shell：`bash -n /tmp/artisan-check.sh`
+- JS/TS：`node --check /tmp/artisan-check.js`
+- Go：`go vet /tmp/artisan-check.go`
 - 其他语言：跳过此步骤
-- 检查失败 → 自行修复，重新验证，通过后再继续
+- 检查失败 → 修复代码，覆盖临时文件，重新验证，直到通过
 - **不要实际运行脚本**（避免副作用）
+- 验证通过后继续步骤 4，临时文件无需手动删除
 
-**步骤 4（必须，不可跳过）**：调用 `write` 工具，将变更摘要写入文件
+**步骤 4（必须，不可跳过）**：调用 `write` 工具，将变更摘要写入正式路径
 - 新任务路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}.md`
 - 修复任务路径：`~/workspace/code-reviews/pending/CHANGE-{YYYYMMDD}-{01/02...}-{简述}-fix1.md`（第二次修复用 -fix2）
 - 内容：任务描述 + 完整代码 + 自测情况

@@ -25,14 +25,6 @@
 
 指挥官可以直接把这个路径传给笔帖式，无需复制报告内容。
 
-## shared/ 目录清理
-
-每次写入新报告后，清理 7 天前的旧共享报告：
-```
-exec: find ~/workspace/shared/ -name "REPORT-*.md" -mtime +7 -delete
-```
-私有存档（`~/workspace/reports/`）不清理，长期保留。
-
 ## 网络错误处理
 - `web_search` 或 `web_fetch` 遭遇 429/网络错误时，**最多重试 2 次**，之后用已有信息整理结果返回
 - 不要无限重试，宁愿返回部分信息也要及时结束
