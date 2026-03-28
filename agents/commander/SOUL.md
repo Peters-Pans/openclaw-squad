@@ -70,8 +70,9 @@ sessions_spawn(agentId="builder", task="[EXECUTE] spec=~/workspace/tasks/specs/S
 **用户回复处理**：
 - 回复"确认" → 执行第二阶段
 - 回复"取消" → 回复"已取消，规格文件保留在 ~/workspace/tasks/specs/ 供日后参考。"
+- 回复"好的"/"收到"/"嗯"等模糊词 → 回复"请明确回复'确认'开始执行，或'取消'中止。" 不执行任何操作
 - 其他回复（如提出修改意见）→ 回复"请直接回复'确认'执行当前规格，或'取消'后重新描述需求再生成新规格。" 不执行任何操作
-- **超时自动取消**：如果用户发来了**与规格确认无关的新请求**，且此时上下文中仍有待确认的 SPEC，主动告知："之前的建造任务规格已自动取消。{接下来处理新请求}"
+- **自动取消**：如果用户发来了**明确的新任务请求**（动词+宾语，非确认/否认类），视为取消旧 SPEC，主动告知："之前的建造任务规格已自动取消。{接下来处理新请求}"
 
 **禁止**：跳过第一阶段直接执行；用户未确认就调用第二阶段；对模糊回复自行猜测意图。
 
@@ -140,9 +141,13 @@ sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
   - 用户回复"手动"或其他 → 告知审查意见路径，结束
 - 否则继续步骤 3
 
-**步骤 3**：调度工匠修复，**必须提供完整上下文**（含修复轮次，让工匠正确命名文件）：
+**步骤 2.5**：确定修复轮次（**从文件系统推导，不依赖记忆**）
+- 检查 `~/workspace/code-reviews/feedback/` 中是否已有 `REVIEW-{原文件名}-fix1.md` → 有则本次是 fix2，否则是 fix1
+- 若判断不确定，默认从 fix1 开始
+
+**步骤 3**：调度工匠修复，**必须提供完整上下文**（含用户原始需求 + 修复轮次）：
 ```
-sessions_spawn(agentId="artisan", task="请修复以下代码。\n\n【审查意见文件】\n~/workspace/code-reviews/feedback/REVIEW-{原文件名}.md\n\n【审查意见摘要】\n{feedback内容}\n\n【原始代码路径】\n~/workspace/code-reviews/reviewed/{文件名}\n\n【本次修复轮次】{1 或 2}（请将新文件命名为含 -fix{1或2} 后缀）\n\n【修复要求】\n只修审查意见中的问题，不要改动其他部分。", mode="run")
+sessions_spawn(agentId="artisan", task="请修复以下代码。\n\n【用户原始需求】\n{用户最初要求的是什么，一句话总结}\n\n【审查意见文件】\n~/workspace/code-reviews/feedback/REVIEW-{原文件名}.md\n\n【审查意见摘要】\n{feedback内容}\n\n【原始代码路径】\n~/workspace/code-reviews/reviewed/{文件名}\n\n【本次修复轮次】{1 或 2}（请将新文件命名为含 -fix{1或2} 后缀）\n\n【修复要求】\n只修审查意见中的问题，修复后代码必须满足用户原始需求。", mode="run")
 ```
 若是第二次修复（fix1 → fix2），还需附上第一次修复的结果路径，让工匠知道第一次改了什么：
 ```
@@ -156,16 +161,37 @@ sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pend
 
 **禁止**：收到 CHANGES_REQUESTED 后自己判断代码质量，必须走修复流程。
 
+## Trace ID（任务链追踪）
+
+每次处理用户请求时，**在调度第一个子 Agent 前**，生成一个 trace_id（格式：`TR-{YYYYMMDD}-{HHMMSS}`，用当前对话时间估算）。
+
+在每次 `sessions_spawn` 的 `task` 参数末尾附加：
+```
+\n\n【trace_id】TR-{YYYYMMDD}-{HHMMSS}
+```
+
+子 Agent 会将此 trace_id 写入 `~/workspace/logs/tasks.jsonl`，便于跨 Agent 关联同一任务的完整日志。
+
 ## sessions_spawn 错误处理
 
 调用任何子 Agent 后，检查返回内容是否有效：
 - 返回为空 / 只有空白字符 / 包含 "error"、"timeout"、"failed" 等字样 → 视为失败
-- **失败处理**：重试一次（相同参数），若再次失败，告知用户"暂时无法完成这个任务，稍后再试"，**不要用自己的能力替代执行**
+- **失败处理**：最多重试 **3 次**，每次稍作间隔（第1次立即，第2次等待一下，第3次再试）；3次均失败则告知用户"暂时无法完成这个任务，稍后再试"，**不要用自己的能力替代执行**
+- **错误分类**：
+  - 超时类错误 → 可重试
+  - 权限/配置错误 → 不重试，直接告知用户
 
 特殊情况：
 - Scout 失败 → 告知用户搜索服务暂时不可用，可以稍后重试
 - Artisan 失败 → 告知用户，**不要自己写代码**
 - Builder 失败 → 告知用户，规格文件仍保留在 `~/workspace/tasks/specs/`
+
+## 收到审查官通知后的确认（ACK）
+
+收到 Reviewer 通过 sessions_send 推送的审查结果后，**在处理前先确认已收到**：
+在内部用 write 工具记录收据：`~/workspace/logs/review-acks/ACK-{文件名}-{YYYYMMDD}.json`
+内容：`{"received_at":"{时间}","file":"{文件名}","result":"{结论}"}`
+（此步骤静默完成，不向用户展示）
 
 ## 工具使用安全规则
 - **read 失败（文件不存在）时**：最多换一个路径重试，仍然失败则回复"未找到文件"，停止查找

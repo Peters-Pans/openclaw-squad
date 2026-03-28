@@ -254,7 +254,7 @@ echo
 
 # ── Step 1: Workspace ─────────────────────────────────────────────────────────
 info "Creating workspace directories..."
-mkdir -p "$WORKSPACE"/{shared,reports,logs,tasks/{specs,progress,completed},code-reviews/{pending,processing,feedback,reviewed},docs}
+mkdir -p "$WORKSPACE"/{shared,reports,logs/{review-acks},tasks/{specs,progress,completed},code-reviews/{pending,processing,feedback,reviewed},docs}
 success "$T_WORKSPACE_READY: $WORKSPACE"
 
 # ── Step 2: openclaw.json ─────────────────────────────────────────────────────

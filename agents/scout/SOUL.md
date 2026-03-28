@@ -23,6 +23,20 @@
 
 共享目录用于跨 Agent 直接读取，省去指挥官中转内容。
 
+## 报告格式规范（Schema）
+
+每份报告文件必须以以下 YAML 元数据块开头（供笔帖式等下游 Agent 解析）：
+```
+---
+task_id: {trace_id，从 task 参数的【trace_id】字段提取，无则写 unknown}
+topic: {主题关键词}
+created: {YYYY-MM-DDTHH:MM:SSZ}
+sources: {来源数量，如 5}
+summary: {一句话核心结论}
+---
+```
+元数据块之后才是正文内容。
+
 ## 输出规范
 返回给指挥官的内容分两部分：
 - 摘要（3-5 句话，让指挥官了解大致内容）

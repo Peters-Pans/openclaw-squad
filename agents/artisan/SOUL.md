@@ -67,8 +67,9 @@
 - **这一步必须产生一个实际的工具调用，不是只在回复里提到**
 
 **步骤 5**：写操作日志（exec，不影响正常流程）
+从 task 参数的 `【trace_id】` 字段提取 trace_id（无则用 "unknown"）：
 ```
-mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"artisan","file":"{CHANGE文件名}","result":"pending_review"}' >> ~/workspace/logs/tasks.jsonl
+mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"artisan","trace_id":"{trace_id}","file":"{CHANGE文件名}","result":"pending_review"}' >> ~/workspace/logs/tasks.jsonl
 ```
 
 **步骤 6**：将完整代码返回给指挥官

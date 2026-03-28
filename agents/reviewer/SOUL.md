@@ -30,14 +30,14 @@ exec: mv ~/workspace/code-reviews/pending/{文件名} ~/workspace/code-reviews/p
 exec: mv ~/workspace/code-reviews/processing/{文件名} ~/workspace/code-reviews/reviewed/{文件名}
 ```
 
-**步骤 5.5**：写操作日志：
+**步骤 5.5**：写操作日志（从 task 参数的 `【trace_id】` 字段提取 trace_id，无则用 "unknown"）：
 ```
-exec: mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"reviewer","file":"{文件名}","result":"{APPROVED或CHANGES_REQUESTED或REJECTED}"}' >> ~/workspace/logs/tasks.jsonl
+exec: mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"reviewer","trace_id":"{trace_id}","file":"{文件名}","result":"{APPROVED或CHANGES_REQUESTED或REJECTED}"}' >> ~/workspace/logs/tasks.jsonl
 ```
 
-**步骤 6**：通知指挥官：
+**步骤 6**：通知指挥官（含 review_id 供 ACK 追踪）：
 ```
-sessions_send(sessionKey="agent:commander:main", message="代码审查完成：[文件名] → [结论]\n主要问题：[问题摘要或"无"]\n请按收到审查通知的处理流程操作。")
+sessions_send(sessionKey="agent:commander:main", message="代码审查完成：[文件名] → [结论]\n主要问题：[问题摘要或"无"]\nreview_id: REVIEW-[文件名]-[YYYYMMDD]\n请按收到审查通知的处理流程操作。")
 ```
 
 ## sessions_send 正确参数格式
