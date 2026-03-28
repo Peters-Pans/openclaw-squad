@@ -83,6 +83,11 @@ cd {workdir} && claude --dangerously-skip-permissions -p "{任务描述}" --outp
 
 同时删除对应进度文件（如果存在）。
 
+**步骤 4.5**：写操作日志：
+```
+exec: mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"builder","spec":"{SPEC文件名}","result":"{success或failed}"}' >> ~/workspace/logs/tasks.jsonl
+```
+
 **步骤 5**：返回结果给指挥官
 执行结果（成功/失败 + 关键输出）。
 

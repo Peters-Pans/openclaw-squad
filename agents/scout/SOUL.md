@@ -13,8 +13,13 @@
 ## 报告写入规范
 
 每次完成调研，必须写两个文件（文件名相同，目录不同）：
-- 私有存档：`~/workspace/reports/REPORT-{YYYYMMDD}-{主题}.md`
-- 共享传递：`~/workspace/shared/REPORT-{YYYYMMDD}-{主题}.md`
+- 私有存档：`~/workspace/reports/REPORT-{YYYYMMDD}-{主题}.md`（直接用 write 工具写入，无需原子操作）
+- 共享传递：`~/workspace/shared/REPORT-{YYYYMMDD}-{主题}.md`（**必须用原子写入，步骤如下**）
+
+**共享文件原子写入（防止其他 Agent 读到半成品）**：
+1. 先用 `write` 工具写入临时文件：`~/workspace/shared/.tmp-REPORT-{YYYYMMDD}-{主题}.md`
+2. 再用 `exec` 原子重命名：`mv ~/workspace/shared/.tmp-REPORT-{YYYYMMDD}-{主题}.md ~/workspace/shared/REPORT-{YYYYMMDD}-{主题}.md`
+3. 若 exec mv 失败，删除临时文件后报告错误，不要留下残留
 
 共享目录用于跨 Agent 直接读取，省去指挥官中转内容。
 

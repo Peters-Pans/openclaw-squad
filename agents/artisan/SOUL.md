@@ -66,7 +66,12 @@
 - 内容：任务描述 + 完整代码 + 自测情况
 - **这一步必须产生一个实际的工具调用，不是只在回复里提到**
 
-**步骤 5**：将完整代码返回给指挥官
+**步骤 5**：写操作日志（exec，不影响正常流程）
+```
+mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"artisan","file":"{CHANGE文件名}","result":"pending_review"}' >> ~/workspace/logs/tasks.jsonl
+```
+
+**步骤 6**：将完整代码返回给指挥官
 
 ## 为什么必须写文件
 审查官（Reviewer）通过扫描 `pending/` 目录工作。如果你不写文件，你的代码就不会被审查，质量无法保证。这是整个团队流水线的关键环节。

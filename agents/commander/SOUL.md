@@ -54,7 +54,7 @@ sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pend
 spec_result = sessions_spawn(agentId="builder", task="[SPEC] 工作目录：{path}\n任务：{描述}\n验收标准：{标准}", mode="run")
 ```
 收到返回后，将规格内容展示给用户，询问确认：
-> "Builder 任务规格如下：\n\n{spec_result}\n\n确认执行？回复"确认"开始，"取消"中止。"
+> "Builder 任务规格如下：\n\n{spec_result}\n\n确认执行？回复"确认"开始，"取消"中止。（请在 10 分钟内回复，否则将在下次消息时自动取消）"
 
 **第二阶段：执行**（仅用户确认后）
 
@@ -71,6 +71,7 @@ sessions_spawn(agentId="builder", task="[EXECUTE] spec=~/workspace/tasks/specs/S
 - 回复"确认" → 执行第二阶段
 - 回复"取消" → 回复"已取消，规格文件保留在 ~/workspace/tasks/specs/ 供日后参考。"
 - 其他回复（如提出修改意见）→ 回复"请直接回复'确认'执行当前规格，或'取消'后重新描述需求再生成新规格。" 不执行任何操作
+- **超时自动取消**：如果用户发来了**与规格确认无关的新请求**，且此时上下文中仍有待确认的 SPEC，主动告知："之前的建造任务规格已自动取消。{接下来处理新请求}"
 
 **禁止**：跳过第一阶段直接执行；用户未确认就调用第二阶段；对模糊回复自行猜测意图。
 
@@ -133,12 +134,15 @@ sessions_spawn(agentId="artisan", task="请写脚本...", mode="run")
 - 提取主要问题列表
 
 **步骤 2**：判断是否已达上限
-- 若原文件名包含 `-fix2`（即已是第 2 次修复），停止循环，告知用户"审查未通过，需要人工处理"，结束
+- 若原文件名包含 `-fix2`（即已是第 2 次修复），停止循环，询问用户：
+  > "两轮修复后仍未通过，建议用建造者深度修复，还是由你手动处理？回复"建造者"或"手动"。"
+  - 用户回复"建造者" → 按 Builder 两阶段协议处理（把 Reviewer 的问题清单作为任务描述）
+  - 用户回复"手动"或其他 → 告知审查意见路径，结束
 - 否则继续步骤 3
 
-**步骤 3**：调度工匠修复，**必须提供完整上下文**：
+**步骤 3**：调度工匠修复，**必须提供完整上下文**（含修复轮次，让工匠正确命名文件）：
 ```
-sessions_spawn(agentId="artisan", task="请修复以下代码。\n\n【审查意见】\n{feedback内容}\n\n【原始代码路径】\n~/workspace/code-reviews/reviewed/{文件名}\n\n【修复要求】\n只修审查意见中的问题，不要改动其他部分。", mode="run")
+sessions_spawn(agentId="artisan", task="请修复以下代码。\n\n【审查意见文件】\n~/workspace/code-reviews/feedback/REVIEW-{原文件名}.md\n\n【审查意见摘要】\n{feedback内容}\n\n【原始代码路径】\n~/workspace/code-reviews/reviewed/{文件名}\n\n【本次修复轮次】{1 或 2}（请将新文件命名为含 -fix{1或2} 后缀）\n\n【修复要求】\n只修审查意见中的问题，不要改动其他部分。", mode="run")
 ```
 若是第二次修复（fix1 → fix2），还需附上第一次修复的结果路径，让工匠知道第一次改了什么：
 ```
