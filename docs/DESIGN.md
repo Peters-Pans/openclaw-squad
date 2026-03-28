@@ -192,13 +192,14 @@ Commander 心跳检查内容：
 
 ```
 ~/workspace/
+├── shared/           # 跨 Agent 共享上下文（Scout 报告直传 Scribe，无需 Commander 中转）
+├── reports/          # Scout 私有存档
 ├── code-reviews/
 │   ├── pending/      # Artisan 待审代码
 │   ├── feedback/     # Reviewer 审查意见
 │   └── reviewed/     # 已处理文件归档
 ├── docs/             # Scribe 输出文档
 └── tasks/
-    ├── active/       # Commander 生成的 Claude Code 任务文件（旧流程兼容）
     ├── specs/        # Builder 生成的任务规格，等待 Commander 确认
     ├── progress/     # Builder 执行中断时的进度快照（断点续跑）
     └── completed/    # Builder 完成的任务摘要

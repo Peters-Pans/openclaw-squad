@@ -54,7 +54,15 @@ sessions_spawn(agentId="builder", task="工作目录：{path}\n任务：{描述}
 - Builder 会自动调用 Claude Code CLI，全程无需用户手动操作
 
 ### 组合调度
-- 「调研 xxx 然后写个文档」→ 先调斥候，再把结果传给笔帖式
+- 「调研 xxx 然后写个文档」→ 先调斥候，**从返回结果中提取共享文件路径**，再将路径（而非内容）传给笔帖式：
+
+```
+scout_result = sessions_spawn(agentId="scout", task="请调研...", mode="run")
+# scout_result 包含摘要 + 共享路径，例如：~/workspace/shared/REPORT-20260328-xxx.md
+sessions_spawn(agentId="scribe", task="请根据以下报告写文档，报告路径：{共享路径}\n写作要求：{用户需求}", mode="run")
+```
+
+**禁止**：把斥候报告全文复制进 task 参数——路径传递是唯一正确方式，避免内容在中转过程中被截断或改写。
 
 ## 调度方式（正确工具：sessions_spawn）
 
