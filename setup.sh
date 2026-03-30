@@ -254,8 +254,153 @@ echo
 
 # ── Step 1: Workspace ─────────────────────────────────────────────────────────
 info "Creating workspace directories..."
-mkdir -p "$WORKSPACE"/{shared,reports,logs/{review-acks},tasks/{specs,progress,completed},code-reviews/{pending,processing,feedback,reviewed},docs}
+mkdir -p "$WORKSPACE"/{shared,reports,logs/{review-acks},tasks/{specs,progress,completed},code-reviews/{pending,processing,feedback,reviewed},docs,bin}
 success "$T_WORKSPACE_READY: $WORKSPACE"
+
+# ── Step 1.5: SQLite state DB + wrapper scripts ────────────────────────────────
+info "Initializing SQLite state database..."
+DB_PATH="$WORKSPACE/state.db"
+
+# Generate all DB wrapper scripts in one Python pass (avoids heredoc shell-escaping issues)
+python3 - "$WORKSPACE/bin" "$DB_PATH" <<'PYEOF'
+import sys, os, stat
+
+BIN = sys.argv[1]
+DB  = sys.argv[2]
+
+def w(name, src):
+    p = os.path.join(BIN, name)
+    with open(p, 'w') as f:
+        f.write(src)
+    os.chmod(p, os.stat(p).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+w("db_init.py", f"""#!/usr/bin/env python3
+\"\"\"Create DB schema (idempotent). Run once at install and after DB reset.\"\"\"
+import sqlite3
+con = sqlite3.connect("{DB}")
+con.executescript(\"\"\"
+PRAGMA journal_mode=WAL;
+CREATE TABLE IF NOT EXISTS review_tasks (
+  id   TEXT PRIMARY KEY,
+  filename TEXT NOT NULL UNIQUE,
+  status   TEXT NOT NULL DEFAULT 'pending'
+    CHECK(status IN ('pending','processing','approved','changes_requested','rejected')),
+  trace_id TEXT,
+  reviewer_started_at TEXT,
+  completed_at        TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_status ON review_tasks(status);
+CREATE TABLE IF NOT EXISTS agent_logs (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  trace_id TEXT,
+  agent    TEXT,
+  action   TEXT,
+  result   TEXT,
+  ts       TEXT DEFAULT (datetime('now'))
+);
+\"\"\")
+con.close()
+print("DB ready: {DB}")
+""")
+
+w("db_insert_task.py", f"""#!/usr/bin/env python3
+\"\"\"Register a new review task as pending. Args: <filename> <trace_id>\"\"\"
+import sqlite3, sys
+filename, trace_id = sys.argv[1], sys.argv[2]
+con = sqlite3.connect("{DB}", timeout=5)
+con.execute("PRAGMA journal_mode=WAL")
+con.execute(
+    "INSERT OR IGNORE INTO review_tasks (id,filename,status,trace_id) VALUES (?,?,'pending',?)",
+    (f"{{trace_id}}:{{filename}}", filename, trace_id))
+con.commit()
+con.close()
+""")
+
+w("db_claim.py", f"""#!/usr/bin/env python3
+\"\"\"Atomic CAS claim: pending→processing. Exit 0=claimed, Exit 1=already taken. Args: <filename>\"\"\"
+import sqlite3, sys
+filename = sys.argv[1]
+con = sqlite3.connect("{DB}", timeout=5)
+con.execute("PRAGMA journal_mode=WAL")
+cur = con.execute(
+    "UPDATE review_tasks SET status='processing', reviewer_started_at=datetime('now') "
+    "WHERE filename=? AND status='pending'", (filename,))
+con.commit()
+con.close()
+sys.exit(0 if cur.rowcount == 1 else 1)
+""")
+
+w("db_complete.py", f"""#!/usr/bin/env python3
+\"\"\"Mark task complete. Args: <filename> <approved|changes_requested|rejected>\"\"\"
+import sqlite3, sys
+filename, status = sys.argv[1], sys.argv[2]
+if status not in ('approved','changes_requested','rejected'):
+    print(f"Invalid status: {{status}}", file=sys.stderr); sys.exit(1)
+con = sqlite3.connect("{DB}", timeout=5)
+con.execute("PRAGMA journal_mode=WAL")
+con.execute(
+    "UPDATE review_tasks SET status=?, completed_at=datetime('now') "
+    "WHERE filename=? AND status='processing'", (status, filename))
+con.commit()
+con.close()
+""")
+
+w("db_log.py", f"""#!/usr/bin/env python3
+\"\"\"Append agent audit log. Args: <trace_id> <agent> <action> <result>\"\"\"
+import sqlite3, sys
+trace_id, agent, action, result = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+con = sqlite3.connect("{DB}", timeout=5)
+con.execute("PRAGMA journal_mode=WAL")
+con.execute(
+    "INSERT INTO agent_logs (trace_id,agent,action,result) VALUES (?,?,?,?)",
+    (trace_id, agent, action, result))
+con.commit()
+con.close()
+""")
+
+w("db_list_pending.py", f"""#!/usr/bin/env python3
+\"\"\"List pending task filenames (up to N). Args: [limit=5]\"\"\"
+import sqlite3, sys
+limit = int(sys.argv[1]) if len(sys.argv) > 1 else 5
+con = sqlite3.connect("{DB}", timeout=5)
+rows = con.execute(
+    "SELECT filename FROM review_tasks WHERE status='pending' ORDER BY created_at LIMIT ?",
+    (limit,)).fetchall()
+con.close()
+for (fn,) in rows:
+    print(fn)
+""")
+
+w("db_timeout_recovery.py", f"""#!/usr/bin/env python3
+\"\"\"Reset tasks stuck in processing >2h back to pending, and move files back.\"\"\"
+import sqlite3, sys, os
+DB  = "{DB}"
+WS  = os.path.dirname(DB)
+con = sqlite3.connect(DB, timeout=5)
+con.execute("PRAGMA journal_mode=WAL")
+rows = con.execute(
+    "SELECT filename FROM review_tasks WHERE status='processing' "
+    "AND reviewer_started_at < datetime('now','-2 hours')"
+).fetchall()
+for (fn,) in rows:
+    con.execute("UPDATE review_tasks SET status='pending', reviewer_started_at=NULL WHERE filename=?", (fn,))
+    src = os.path.join(WS, "code-reviews/processing", fn)
+    dst = os.path.join(WS, "code-reviews/pending",    fn)
+    if os.path.exists(src):
+        os.rename(src, dst)
+    print(f"Recovered: {{fn}}")
+con.commit()
+con.close()
+print(f"Timeout recovery done: {{len(rows)}} tasks reset")
+""")
+
+print(f"Wrote {len(os.listdir(BIN))} DB wrapper scripts to {BIN}")
+PYEOF
+
+# Initialize the DB schema
+python3 "$WORKSPACE/bin/db_init.py"
+success "SQLite state DB ready: $DB_PATH"
 
 # ── Step 2: openclaw.json ─────────────────────────────────────────────────────
 info "$T_CONFIGURING"

@@ -83,9 +83,9 @@ cd {workdir} && claude --dangerously-skip-permissions -p "{任务描述}" --outp
 
 同时删除对应进度文件（如果存在）。
 
-**步骤 4.5**：写操作日志（从 task 参数的 `【trace_id】` 字段提取 trace_id，无则用 "unknown"）：
+**步骤 4.5**：写审计日志（从 task 参数的 `【trace_id】` 字段提取 trace_id，无则用 "unknown"）：
 ```
-exec: mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"builder","trace_id":"{trace_id}","spec":"{SPEC文件名}","result":"{success或failed}"}' >> ~/workspace/logs/tasks.jsonl
+exec: python3 ~/workspace/bin/db_log.py {trace_id} builder execute_{success或failed} {SPEC文件名}
 ```
 
 **步骤 5**：返回结果给指挥官

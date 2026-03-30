@@ -170,7 +170,7 @@ sessions_spawn(agentId="reviewer", task="请审查 ~/workspace/code-reviews/pend
 \n\n【trace_id】TR-{YYYYMMDD}-{HHMMSS}
 ```
 
-子 Agent 会将此 trace_id 写入 `~/workspace/logs/tasks.jsonl`，便于跨 Agent 关联同一任务的完整日志。
+子 Agent 会将此 trace_id 写入状态数据库（`~/workspace/state.db` 的 agent_logs 表），便于跨 Agent 关联同一任务的完整审计链。
 
 ## sessions_spawn 错误处理
 

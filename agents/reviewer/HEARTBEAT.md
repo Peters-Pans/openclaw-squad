@@ -1,18 +1,18 @@
 按以下顺序执行：
 
-1. 检查 ~/workspace/code-reviews/processing/ 目录中的**僵死文件**（超过 2 小时未完成）：
-   exec: find ~/workspace/code-reviews/processing/ -name "*.md" -mmin +120 -exec mv {} ~/workspace/code-reviews/pending/ \;
-   这些文件是上次实例超时卡死留下的，重新入队等待审查。
+1. **超时恢复**（DB 驱动，原子操作）：
+   exec: python3 ~/workspace/bin/db_timeout_recovery.py
+   此命令自动找出 DB 中 status='processing' 且 reviewer_started_at 超过 2 小时的任务，
+   将 DB 状态重置为 'pending'，并将对应文件从 processing/ 移回 pending/。
+   输出恢复的文件列表。
 
-   检查 ~/workspace/code-reviews/processing/ 目录中的**近期残留文件**（2 小时内，上次实例异常退出）：
-   如有 → 从审查步骤 3 继续处理（直接读取并审查，无需再 mv）。
+   检查 processing/ 中**近期残留文件**（DB 状态仍为 processing，时间 <2 小时，上次实例异常退出）：
+   如有 → 从审查步骤 3 继续处理（直接读取并审查，无需再执行 db_claim.py）。
 
-2. 检查 ~/workspace/code-reviews/pending/ 目录。
+2. 执行常规审查（与 SOUL.md 审查流程完全一致）：
+   步骤 1：exec: python3 ~/workspace/bin/db_list_pending.py 5
    **单次最多处理 5 个文件**，超出部分留待下次 cron 处理。
-   对每个文件，先执行 mv pending/{文件名} processing/{文件名}，移动成功后再审查；移动失败则跳过。
-   审查意见写入 ~/workspace/code-reviews/feedback/REVIEW-{原文件名}.md。
-   审查完成后将文件从 processing/ 移到 reviewed/。
-   用 sessions_send(sessionKey="agent:commander:main", message="代码审查完成：[文件名] → [结论]\n主要问题：[如有问题，列出 1-3 条关键问题；APPROVED 则写"无"]\n请按收到审查通知的处理流程操作。") 通知指挥官。
+   按 SOUL.md 步骤 2-6 处理每个文件（DB 抢占 → 审查 → DB 完成 → 归档 → 通知）。
 
 3. 清理共享目录：
    a. 清理 7 天前的旧报告（只清理完整文件，不动临时文件）：

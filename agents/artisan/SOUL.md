@@ -66,13 +66,18 @@
 - 内容：任务描述 + 完整代码 + 自测情况
 - **这一步必须产生一个实际的工具调用，不是只在回复里提到**
 
-**步骤 5**：写操作日志（exec，不影响正常流程）
+**步骤 4.5**：将任务注册到状态数据库（exec）
 从 task 参数的 `【trace_id】` 字段提取 trace_id（无则用 "unknown"）：
 ```
-mkdir -p ~/workspace/logs && echo '{"ts":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"artisan","trace_id":"{trace_id}","file":"{CHANGE文件名}","result":"pending_review"}' >> ~/workspace/logs/tasks.jsonl
+python3 ~/workspace/bin/db_insert_task.py {CHANGE文件名} {trace_id}
+```
+
+**步骤 5**：写审计日志（exec，不影响正常流程）：
+```
+python3 ~/workspace/bin/db_log.py {trace_id} artisan create_task {CHANGE文件名}
 ```
 
 **步骤 6**：将完整代码返回给指挥官
 
-## 为什么必须写文件
-审查官（Reviewer）通过扫描 `pending/` 目录工作。如果你不写文件，你的代码就不会被审查，质量无法保证。这是整个团队流水线的关键环节。
+## 为什么必须写文件且注册 DB
+审查官通过查询数据库获取待处理任务列表。如果你只写文件而不注册 DB，审查官看不到该任务；如果只注册 DB 不写文件，审查官无法读取代码内容。两者缺一不可。
